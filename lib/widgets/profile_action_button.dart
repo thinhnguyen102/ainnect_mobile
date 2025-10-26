@@ -8,6 +8,7 @@ class ProfileActionButton extends StatelessWidget {
   final VoidCallback? onAddFriend;
   final VoidCallback? onFollow;
   final VoidCallback? onMessage;
+  final VoidCallback? onLogout;
 
   const ProfileActionButton({
     super.key,
@@ -17,19 +18,42 @@ class ProfileActionButton extends StatelessWidget {
     this.onAddFriend,
     this.onFollow,
     this.onMessage,
+    this.onLogout,
   });
 
   @override
   Widget build(BuildContext context) {
     if (isCurrentUser) {
-      return ElevatedButton(
-        onPressed: onEdit,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.grey[200],
-          foregroundColor: Colors.black,
-          minimumSize: const Size(double.infinity, 40),
-        ),
-        child: const Text('Chỉnh sửa trang cá nhân'),
+      return Column(
+        children: [
+          ElevatedButton(
+            onPressed: onEdit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey[200],
+              foregroundColor: Colors.black,
+              minimumSize: const Size(double.infinity, 40),
+            ),
+            child: const Text('Chỉnh sửa trang cá nhân'),
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: onLogout,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[50],
+              foregroundColor: Colors.red[700],
+              minimumSize: const Size(double.infinity, 40),
+              side: BorderSide(color: Colors.red[300]!),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.logout_outlined),
+                SizedBox(width: 8),
+                Text('Đăng xuất'),
+              ],
+            ),
+          ),
+        ],
       );
     }
 

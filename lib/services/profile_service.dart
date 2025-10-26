@@ -10,34 +10,28 @@ import '../utils/logger.dart';
 class ProfileService {
   Future<Profile?> getProfile(String token, int userId, {int page = 0, int size = 10}) async {
     final endpoint = '${Constants.baseUrl}/profiles/$userId?page=$page&size=$size';
-    debugPrint('🔍 Fetching profile for userId: $userId, page: $page, size: $size');
-    debugPrint('📡 API endpoint: $endpoint');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    
+    Logger.debug('Fetching profile for userId: $userId, page: $page, size: $size');
+    Logger.request('GET', endpoint, headers: headers);
     
     try {
-      debugPrint('⏳ Making API request...');
-      debugPrint('🔑 Using token: $token');
       final response = await http.get(
         Uri.parse(endpoint),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: headers,
       ).timeout(
         Constants.requestTimeout,
         onTimeout: () {
-          debugPrint('⚠️ API timeout after ${Constants.requestTimeout.inSeconds} seconds');
           throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
         },
       );
 
-      debugPrint('📥 API response status: ${response.statusCode}');
-      debugPrint('📄 API response body: ${response.body}');
-
-      Logger.api(
-        'GET',
-        endpoint,
-        statusCode: response.statusCode,
-        response: response.body,
+      Logger.response('GET', endpoint, response.statusCode, 
+        body: response.body, 
+        headers: response.headers
       );
 
       if (response.statusCode == 200) {
@@ -75,8 +69,7 @@ class ProfileService {
       );
       return null;
     } catch (e, stackTrace) {
-      debugPrint('❌ Error fetching profile: $e');
-      debugPrint('📚 Error stack trace: $stackTrace');
+      Logger.networkError('GET', endpoint, e);
       Logger.error(
         'Error fetching profile',
         error: e,
@@ -485,6 +478,27 @@ class ProfileService {
         stackTrace: stackTrace,
       );
       return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchFriends(String userId, {String? token, int page = 0, int size = 10}) async {
+    final endpoint = '${Constants.baseUrl}/api/social/friends/$userId?page=$page&size=$size';
+    try {
+      final response = await http.get(
+        Uri.parse(endpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        throw Exception('Failed to fetch friends: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching friends: $e');
     }
   }
 }

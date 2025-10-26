@@ -50,6 +50,7 @@ class Profile {
 
   Profile copyWith({
     PostsResponse? posts,
+    Relationship? relationship,
   }) {
     return Profile(
       userId: userId,
@@ -61,7 +62,7 @@ class Profile {
       location: location,
       website: website,
       joinedAt: joinedAt,
-      relationship: relationship,
+      relationship: relationship ?? this.relationship,
       socialStats: socialStats,
       educations: educations,
       workExperiences: workExperiences,

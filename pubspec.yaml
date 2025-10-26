@@ -49,6 +49,9 @@ dependencies:
   
   # Form validation
   email_validator: ^2.1.17
+  
+  # Image picker for media selection
+  image_picker: ^1.0.4
 
 dev_dependencies:
   flutter_test:

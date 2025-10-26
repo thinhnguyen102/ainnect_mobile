@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/create_post_request.dart';
@@ -7,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../services/post_service.dart';
 import '../widgets/user_avatar.dart';
 import '../widgets/media_preview.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -32,7 +34,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   Future<void> _pickImage() async {
     try {
       final images = await _imagePicker.pickMultiImage();
-      if (images != null) {
+      if (images.isNotEmpty) {
         setState(() {
           _selectedMedia.addAll(images.map((image) => image.path));
         });
@@ -151,9 +153,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
                 // User info
                 Row(
                   children: [
@@ -288,11 +291,38 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _createPost,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text('Đăng bài', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
               ],
             ),
+          ),
           );
         },
       ),
+      bottomNavigationBar: BottomNavBar(currentIndex: 1),
     );
   }
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/post.dart';
-import '../utils/url_helper.dart';
 import 'media_preview.dart';
 
 class MediaGallery extends StatelessWidget {
@@ -10,61 +9,69 @@ class MediaGallery extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (media.isEmpty) return const SizedBox.shrink();
+    // Filter out media items with null URLs
+    final validMedia = media.where((item) => item.mediaUrl != null).toList();
+    
+    if (validMedia.isEmpty) return const SizedBox.shrink();
 
-    if (media.length == 1) {
-      return _buildSingleImage(media[0]);
-    } else if (media.length == 2) {
-      return _buildTwoImages();
-    } else if (media.length == 3) {
-      return _buildThreeImages();
+    if (validMedia.length == 1) {
+      return _buildSingleImage(validMedia[0]);
+    } else if (validMedia.length == 2) {
+      return _buildTwoImages(validMedia);
+    } else if (validMedia.length == 3) {
+      return _buildThreeImages(validMedia);
     } else {
-      return _buildFourOrMoreImages();
+      return _buildFourOrMoreImages(validMedia);
     }
   }
 
   Widget _buildSingleImage(PostMedia mediaItem) {
+    // Skip media items with null URLs
+    if (mediaItem.mediaUrl == null) {
+      return const SizedBox.shrink();
+    }
+    
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: MediaPreview(
-          mediaUrl: mediaItem.mediaUrl,
-          mediaType: mediaItem.mediaType,
+          mediaUrl: mediaItem.mediaUrl!,
+          mediaType: mediaItem.mediaType ?? 'image',
         ),
       ),
     );
   }
 
-  Widget _buildTwoImages() {
+  Widget _buildTwoImages(List<PostMedia> validMedia) {
     return SizedBox(
       height: 200,
       child: Row(
         children: [
-          Expanded(child: _buildSingleImage(media[0])),
+          Expanded(child: _buildSingleImage(validMedia[0])),
           const SizedBox(width: 2),
-          Expanded(child: _buildSingleImage(media[1])),
+          Expanded(child: _buildSingleImage(validMedia[1])),
         ],
       ),
     );
   }
 
-  Widget _buildThreeImages() {
+  Widget _buildThreeImages(List<PostMedia> validMedia) {
     return SizedBox(
       height: 200,
       child: Row(
         children: [
           Expanded(
             flex: 2,
-            child: _buildSingleImage(media[0]),
+            child: _buildSingleImage(validMedia[0]),
           ),
           const SizedBox(width: 2),
           Expanded(
             child: Column(
               children: [
-                Expanded(child: _buildSingleImage(media[1])),
+                Expanded(child: _buildSingleImage(validMedia[1])),
                 const SizedBox(height: 2),
-                Expanded(child: _buildSingleImage(media[2])),
+                Expanded(child: _buildSingleImage(validMedia[2])),
               ],
             ),
           ),
@@ -73,7 +80,7 @@ class MediaGallery extends StatelessWidget {
     );
   }
 
-  Widget _buildFourOrMoreImages() {
+  Widget _buildFourOrMoreImages(List<PostMedia> validMedia) {
     return SizedBox(
       height: 300,
       child: Column(
@@ -81,9 +88,9 @@ class MediaGallery extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                Expanded(child: _buildSingleImage(media[0])),
+                Expanded(child: _buildSingleImage(validMedia[0])),
                 const SizedBox(width: 2),
-                Expanded(child: _buildSingleImage(media[1])),
+                Expanded(child: _buildSingleImage(validMedia[1])),
               ],
             ),
           ),
@@ -95,8 +102,8 @@ class MediaGallery extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      _buildSingleImage(media[2]),
-                      if (media.length > 4)
+                      _buildSingleImage(validMedia[2]),
+                      if (validMedia.length > 4)
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.5),
@@ -104,7 +111,7 @@ class MediaGallery extends StatelessWidget {
                           ),
                           child: Center(
                             child: Text(
-                              '+${media.length - 4}',
+                              '+${validMedia.length - 4}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 24,
@@ -117,7 +124,7 @@ class MediaGallery extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 2),
-                Expanded(child: _buildSingleImage(media[3])),
+                Expanded(child: _buildSingleImage(validMedia[3])),
               ],
             ),
           ),

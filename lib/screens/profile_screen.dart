@@ -8,6 +8,7 @@ import '../widgets/post_card.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_info_section.dart';
 import '../widgets/profile_action_button.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 class ProfileScreen extends StatefulWidget {
   final int userId;
@@ -32,6 +33,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadProfile();
+    _loadFriends();
     _scrollController.addListener(_onScroll);
   }
 
@@ -155,6 +157,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _loadFriends() async {
+    final authProvider = context.read<AuthProvider>();
+    final accessToken = await authProvider.getAccessToken();
+
+    if (accessToken == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng đăng nhập để xem danh sách bạn bè'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final friendsData = await _profileService.fetchFriends(widget.userId.toString(), token: accessToken);
+
+    if (friendsData.isNotEmpty && mounted) {
+      setState(() {
+        // Assuming friendsData['data']['friendships'] contains a list of relationships
+        final friendships = (friendsData['data']['friendships'] as List<dynamic>)
+            .map((friend) => Relationship.fromJson(friend as Map<String, dynamic>))
+            .toList();
+
+        // Update the profile's relationship data if needed
+        _profile = _profile?.copyWith(
+          relationship: friendships.isNotEmpty ? friendships.first : _profile?.relationship,
+        );
+      });
+    }
+  }
+
   void _onScroll() {
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       if (_hasMore && !_isLoading) {
@@ -201,6 +234,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _handleEditInterest() {
     // TODO: Navigate to edit interests screen
+  }
+
+  Future<void> _handleLogout() async {
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.logout();
+    
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã đăng xuất thành công'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      // Navigate to login screen and clear navigation stack
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đăng xuất thất bại. Vui lòng thử lại.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -261,6 +317,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onAddFriend: _handleAddFriend,
                           onFollow: _handleFollow,
                           onMessage: _handleMessage,
+                          onLogout: _handleLogout,
                         ),
 
                         const SizedBox(height: 16),
@@ -325,7 +382,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           updatedAt: post.createdAt,
                         ),
                         isLiked: post.liked,
-                        onLike: () {}, // TODO: Implement like
+                        onLike: ([type]) {}, // TODO: Implement like
                         onComment: () {}, // TODO: Implement comment
                         onShare: () {}, // TODO: Implement share
                       ),
@@ -356,6 +413,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: BottomNavBar(currentIndex: 3),
     );
   }
 }

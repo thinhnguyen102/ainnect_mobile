@@ -34,8 +34,6 @@ class _MediaPreviewState extends State<MediaPreview> {
         return Stack(
           children: [
             Container(
-              width: 100,
-              height: 100,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.grey.shade300),
@@ -48,6 +46,8 @@ class _MediaPreviewState extends State<MediaPreview> {
                             UrlHelper.fixImageUrl(widget.mediaUrl),
                             headers: snapshot.data,
                             fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
                             errorBuilder: (context, error, stackTrace) {
                               return const Center(
                                 child: Icon(

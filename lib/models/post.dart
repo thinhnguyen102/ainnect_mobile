@@ -45,15 +45,15 @@ class Post {
 @JsonSerializable()
 class PostMedia {
   final int id;
-  final String mediaUrl;
-  final String mediaType;
-  final String createdAt;
+  final String? mediaUrl;
+  final String? mediaType;
+  final String? createdAt;
 
   const PostMedia({
     required this.id,
-    required this.mediaUrl,
-    required this.mediaType,
-    required this.createdAt,
+    this.mediaUrl,
+    this.mediaType,
+    this.createdAt,
   });
 
   factory PostMedia.fromJson(Map<String, dynamic> json) => _$PostMediaFromJson(json);
@@ -61,14 +61,15 @@ class PostMedia {
 }
 
 @JsonSerializable()
-class PostReactions {
-  final int totalCount;
-  final List<ReactionCount> reactionCounts;
-  final List<UserReaction> recentReactions;
-  final bool currentUserReacted;
-  final String? currentUserReactionType;
 
-  const PostReactions({
+class PostReactions {
+  int totalCount;
+  List<ReactionCount> reactionCounts;
+  List<UserReaction> recentReactions;
+  bool currentUserReacted;
+  String? currentUserReactionType;
+
+  PostReactions({
     required this.totalCount,
     required this.reactionCounts,
     required this.recentReactions,

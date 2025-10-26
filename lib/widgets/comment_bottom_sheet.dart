@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/comment.dart';
 import '../models/post.dart';
 import '../services/post_service.dart';
 import '../utils/url_helper.dart';
 import '../screens/profile_screen.dart';
+import '../providers/auth_provider.dart';
 
 class CommentBottomSheet extends StatefulWidget {
   final Post post;
@@ -91,16 +93,51 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
 
     setState(() => _isLoading = true);
     try {
+      // Lấy token từ AuthProvider
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = await authProvider.getAccessToken();
+      if (token == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Vui lòng đăng nhập để bình luận.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
       final success = await _postService.addComment(
-        'YOUR_AUTH_TOKEN', // TODO: Get actual auth token
+        token,
         widget.post.id,
         content,
       );
 
       if (success) {
+        // Hiển thị ngay comment vừa gửi lên đầu danh sách
+        final user = authProvider.user;
+        if (user != null) {
+          final now = DateTime.now().toIso8601String();
+          setState(() {
+            _comments.insert(0, Comment(
+              id: -1, // id tạm thời, server sẽ trả id thật khi reload
+              postId: widget.post.id,
+              authorId: user.id,
+              authorUsername: user.username,
+              authorDisplayName: user.displayName,
+              authorAvatarUrl: user.avatarUrl,
+              parentId: null,
+              content: content,
+              reactionCount: 0,
+              createdAt: now,
+              updatedAt: now,
+            ));
+          });
+        }
         _commentController.clear();
-        await _loadComments(refresh: true);
         _focusNode.unfocus();
+        // Không cần await _loadComments(refresh: true);
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -115,7 +152,7 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi: ${e.toString()}'),
+            content: Text('Lỗi: \\${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );

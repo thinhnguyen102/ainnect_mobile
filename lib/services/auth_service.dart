@@ -15,15 +15,19 @@ class AuthService {
 
   Future<AuthResponse> login(LoginRequest request) async {
     final endpoint = '${Constants.baseUrl}/auth/login';
+    final requestBody = jsonEncode(request.toJson());
+    final headers = {
+      'Content-Type': 'application/json',
+    };
+    
     Logger.debug('Attempting login with username/email: ${request.usernameOrEmail}');
+    Logger.request('POST', endpoint, headers: headers, body: requestBody);
     
     try {
       final response = await http.post(
         Uri.parse(endpoint),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(request.toJson()),
+        headers: headers,
+        body: requestBody,
       ).timeout(
         Constants.requestTimeout,
         onTimeout: () {
@@ -31,11 +35,9 @@ class AuthService {
         },
       );
 
-      Logger.api(
-        'POST',
-        endpoint,
-        statusCode: response.statusCode,
-        response: response.body,
+      Logger.response('POST', endpoint, response.statusCode, 
+        body: response.body, 
+        headers: response.headers
       );
 
       final data = jsonDecode(response.body);
@@ -53,6 +55,7 @@ class AuthService {
       
       return authResponse;
     } catch (e, stackTrace) {
+      Logger.networkError('POST', endpoint, e);
       Logger.error(
         'Login request failed',
         error: e,
@@ -76,15 +79,19 @@ class AuthService {
 
   Future<AuthResponse> register(RegisterRequest request) async {
     final endpoint = '${Constants.baseUrl}/auth/register';
+    final requestBody = jsonEncode(request.toJson());
+    final headers = {
+      'Content-Type': 'application/json',
+    };
+    
     Logger.debug('Attempting registration for email: ${request.email}');
+    Logger.request('POST', endpoint, headers: headers, body: requestBody);
     
     try {
       final response = await http.post(
         Uri.parse(endpoint),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(request.toJson()),
+        headers: headers,
+        body: requestBody,
       ).timeout(
         Constants.requestTimeout,
         onTimeout: () {
@@ -92,11 +99,9 @@ class AuthService {
         },
       );
 
-      Logger.api(
-        'POST',
-        endpoint,
-        statusCode: response.statusCode,
-        response: response.body,
+      Logger.response('POST', endpoint, response.statusCode, 
+        body: response.body, 
+        headers: response.headers
       );
 
       final data = jsonDecode(response.body);
@@ -114,6 +119,7 @@ class AuthService {
       
       return authResponse;
     } catch (e, stackTrace) {
+      Logger.networkError('POST', endpoint, e);
       Logger.error(
         'Registration request failed',
         error: e,
@@ -146,12 +152,16 @@ class AuthService {
         return null;
       }
 
+      final headers = {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      };
+
+      Logger.request('GET', endpoint, headers: headers);
+
       final response = await http.get(
         Uri.parse(endpoint),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
       ).timeout(
         Constants.requestTimeout,
         onTimeout: () {
@@ -159,11 +169,9 @@ class AuthService {
         },
       );
 
-      Logger.api(
-        'GET',
-        endpoint,
-        statusCode: response.statusCode,
-        response: response.body,
+      Logger.response('GET', endpoint, response.statusCode, 
+        body: response.body, 
+        headers: response.headers
       );
 
       if (response.statusCode == 200) {
@@ -180,6 +188,7 @@ class AuthService {
         return null;
       }
     } catch (e, stackTrace) {
+      Logger.networkError('GET', endpoint, e);
       Logger.error(
         'Error fetching current user',
         error: e,
@@ -217,18 +226,18 @@ class AuthService {
   Future<bool> logout() async {
     try {
       final endpoint = '${Constants.baseUrl}/auth/logout';
-      Logger.api('POST', endpoint);
+      final headers = await _getHeaders();
+      
+      Logger.request('POST', endpoint, headers: headers);
       
       final response = await http.post(
         Uri.parse(endpoint),
-        headers: await _getHeaders(),
+        headers: headers,
       ).timeout(const Duration(seconds: 10));
 
-      Logger.api(
-        'POST',
-        endpoint,
-        statusCode: response.statusCode,
-        response: response.body,
+      Logger.response('POST', endpoint, response.statusCode, 
+        body: response.body, 
+        headers: response.headers
       );
 
       // Xóa dữ liệu đăng nhập khỏi local storage
@@ -238,11 +247,7 @@ class AuthService {
       
       return response.statusCode == 200;
     } catch (e) {
-      Logger.api(
-        'POST',
-        '${Constants.baseUrl}/auth/logout',
-        error: e,
-      );
+      Logger.networkError('POST', '${Constants.baseUrl}/auth/logout', e);
       return false;
     }
   }

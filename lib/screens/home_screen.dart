@@ -9,6 +9,9 @@ import '../utils/url_helper.dart';
 import '../widgets/post_card.dart';
 import '../widgets/comment_bottom_sheet.dart';
 import '../screens/profile_screen.dart';
+import '../screens/create_post_screen.dart';
+import '../screens/search_screen.dart';
+import '../widgets/bottom_nav_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -104,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _handleLike(Post post) async {
+  Future<void> _handleLike(Post post, [String? reactionType]) async {
     if (!_isAuthenticated) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -117,17 +120,34 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final isCurrentlyLiked = post.reactions.currentUserReacted;
     final currentReactionType = post.reactions.currentUserReactionType;
-    
+
     bool success;
-    if (isCurrentlyLiked) {
+    if (isCurrentlyLiked && (reactionType == null || reactionType.toUpperCase() == (currentReactionType?.toUpperCase() ?? 'LIKE'))) {
+      print('Gọi removeReaction cho postId: \\${post.id}');
       success = await _postService.removeReaction(_authToken!, post.id);
+      if (success) {
+        setState(() {
+          post.reactions.currentUserReacted = false;
+          post.reactions.currentUserReactionType = null;
+          post.reactions.totalCount = (post.reactions.totalCount - 1).clamp(0, 999999);
+        });
+      }
     } else {
-      success = await _postService.reactToPost(_authToken!, post.id, 'like');
+      final type = (reactionType ?? 'LIKE').toUpperCase();
+      print('Gọi reactToPost cho postId: \\${post.id}, type: \\${type}');
+      success = await _postService.reactToPost(_authToken!, post.id, type);
+      if (success) {
+        setState(() {
+          post.reactions.currentUserReacted = true;
+          post.reactions.currentUserReactionType = type;
+          if (!isCurrentlyLiked) {
+            post.reactions.totalCount++;
+          }
+        });
+      }
     }
 
-    if (success) {
-      await _loadPosts(refresh: true);
-    } else {
+    if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Không thể thực hiện thao tác. Vui lòng thử lại sau.'),
@@ -210,7 +230,12 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.search, color: Colors.black54),
             onPressed: () {
-              // TODO: Implement search
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SearchScreen(),
+                ),
+              );
             },
           ),
           IconButton(
@@ -338,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   builder: (context, authProvider, child) {
                     return Row(
                       children: [
-                                GestureDetector(
+                        GestureDetector(
                           onTap: () {
                             if (authProvider.user != null) {
                               Navigator.push(
@@ -368,17 +393,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF0F2F5),
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            child: const Text(
-                              "Bạn đang nghĩ gì?",
-                              style: TextStyle(
-                                color: Colors.black54,
-                                fontSize: 16,
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => CreatePostScreen(),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0F2F5),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: const Text(
+                                "Bạn đang nghĩ gì?",
+                                style: TextStyle(
+                                  color: Colors.black54,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
                           ),
@@ -401,7 +436,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         PostCard(
                           post: post,
                           isLiked: post.reactions.currentUserReacted,
-                          onLike: () => _handleLike(post),
+                          onLike: ([type]) => _handleLike(post, type),
                           onComment: () => _handleComment(post),
                           onShare: () => _handleShare(post),
                         ),
@@ -431,6 +466,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: BottomNavBar(currentIndex: 0),
     );
   }
 }

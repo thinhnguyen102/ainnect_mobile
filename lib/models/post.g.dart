@@ -46,9 +46,9 @@ Map<String, dynamic> _$PostToJson(Post instance) => <String, dynamic>{
 
 PostMedia _$PostMediaFromJson(Map<String, dynamic> json) => PostMedia(
   id: (json['id'] as num).toInt(),
-  mediaUrl: json['mediaUrl'] as String,
-  mediaType: json['mediaType'] as String,
-  createdAt: json['createdAt'] as String,
+  mediaUrl: json['mediaUrl'] as String?,
+  mediaType: json['mediaType'] as String?,
+  createdAt: json['createdAt'] as String?,
 );
 
 Map<String, dynamic> _$PostMediaToJson(PostMedia instance) => <String, dynamic>{

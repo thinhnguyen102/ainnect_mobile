@@ -8,17 +8,72 @@ import '../models/create_post_request.dart';
 import '../utils/constants.dart';
 import '../utils/logger.dart';
 
+Future<PageResponse<UserReaction>> getPostReactions(int postId, {int page = 0, int size = 10}) async {
+  final endpoint = '${Constants.baseUrl}/posts/$postId/reactions?page=$page&size=$size';
+  Logger.debug('Fetching reactions for post: postId=$postId, page=$page, size=$size');
+  try {
+    final response = await http.get(
+      Uri.parse(endpoint),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    ).timeout(
+      Constants.requestTimeout,
+      onTimeout: () {
+        throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
+      },
+    );
+
+    Logger.api(
+      'GET',
+      endpoint,
+      statusCode: response.statusCode,
+      response: response.body,
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return PageResponse<UserReaction>.fromJson(
+        data,
+        (json) => UserReaction.fromJson(json as Map<String, dynamic>),
+      );
+    } else {
+      Logger.error(
+        'Failed to fetch reactions',
+        error: 'Status code: \${response.statusCode}, Body: \${response.body}',
+      );
+      return PageResponse<UserReaction>(
+        content: [],
+        page: PageInfo(number: page, size: size, totalElements: 0, totalPages: 0),
+      );
+    }
+  } catch (e, stackTrace) {
+    Logger.error(
+      'Error fetching reactions',
+      error: e,
+      stackTrace: stackTrace,
+    );
+    return PageResponse<UserReaction>(
+      content: [],
+      page: PageInfo(number: page, size: size, totalElements: 0, totalPages: 0),
+    );
+  }
+}
+
 class PostService {
   Future<PageResponse<Post>> getPublicFeed({int page = 0, int size = 10}) async {
     final endpoint = '${Constants.baseUrl}/posts/feed?page=$page&size=$size';
+    final headers = {
+      'Content-Type': 'application/json',
+    };
+    
     Logger.debug('Fetching public feed: page=$page, size=$size');
+    Logger.request('GET', endpoint, headers: headers);
     
     try {
       final response = await http.get(
         Uri.parse(endpoint),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
       ).timeout(
         Constants.requestTimeout,
         onTimeout: () {
@@ -26,11 +81,9 @@ class PostService {
         },
       );
 
-      Logger.api(
-        'GET',
-        endpoint,
-        statusCode: response.statusCode,
-        response: response.body,
+      Logger.response('GET', endpoint, response.statusCode, 
+        body: response.body, 
+        headers: response.headers
       );
 
       if (response.statusCode == 200) {
@@ -55,6 +108,7 @@ class PostService {
         );
       }
     } catch (e, stackTrace) {
+      Logger.networkError('GET', endpoint, e);
       Logger.error(
         'Error fetching public feed',
         error: e,
@@ -74,15 +128,18 @@ class PostService {
 
   Future<PageResponse<Post>> getUserFeed(String token, {int page = 0, int size = 10}) async {
     final endpoint = '${Constants.baseUrl}/posts/feed/user?page=$page&size=$size';
+    final headers = {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+    
     Logger.debug('Fetching user feed: page=$page, size=$size');
+    Logger.request('GET', endpoint, headers: headers);
     
     try {
       final response = await http.get(
         Uri.parse(endpoint),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
       ).timeout(
         Constants.requestTimeout,
         onTimeout: () {
@@ -90,11 +147,9 @@ class PostService {
         },
       );
 
-      Logger.api(
-        'GET',
-        endpoint,
-        statusCode: response.statusCode,
-        response: response.body,
+      Logger.response('GET', endpoint, response.statusCode, 
+        body: response.body, 
+        headers: response.headers
       );
 
       if (response.statusCode == 200) {
@@ -119,6 +174,7 @@ class PostService {
         );
       }
     } catch (e, stackTrace) {
+      Logger.networkError('GET', endpoint, e);
       Logger.error(
         'Error fetching user feed',
         error: e,
@@ -257,7 +313,7 @@ class PostService {
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'reactionType': reactionType,
+          'type': reactionType.toLowerCase(),
         }),
       ).timeout(
         Constants.requestTimeout,
