@@ -2,13 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/profile.dart';
 import '../models/post.dart';
+import '../models/messaging_models.dart';
 import '../providers/auth_provider.dart';
+import '../providers/friendship_provider.dart';
+import '../providers/messaging_provider.dart';
 import '../services/profile_service.dart';
+import '../services/search_service.dart';
 import '../widgets/post_card.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_info_section.dart';
 import '../widgets/profile_action_button.dart';
 import '../widgets/bottom_nav_bar.dart';
+import 'friends_list_screen.dart';
+import 'qr_scanner_screen.dart';
+import 'chat_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final int userId;
@@ -21,6 +28,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ProfileService _profileService = ProfileService();
+  final SearchService _searchService = SearchService();
   final ScrollController _scrollController = ScrollController();
 
   Profile? _profile;
@@ -28,6 +36,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _hasMore = true;
   int _currentPage = 0;
   bool _isCurrentUser = false;
+  int _friendsCount = 0;
 
   @override
   void initState() {
@@ -159,32 +168,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadFriends() async {
     final authProvider = context.read<AuthProvider>();
-    final accessToken = await authProvider.getAccessToken();
+    final accessToken = await authProvider.token;
 
     if (accessToken == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng đăng nhập để xem danh sách bạn bè'),
-          backgroundColor: Colors.red,
-        ),
-      );
       return;
     }
 
-    final friendsData = await _profileService.fetchFriends(widget.userId.toString(), token: accessToken);
+    try {
+      final friendsData = await _searchService.fetchFriends(
+        widget.userId.toString(),
+        token: accessToken,
+        size: 1, // Chỉ cần lấy metadata để biết số lượng
+      );
 
-    if (friendsData.isNotEmpty && mounted) {
-      setState(() {
-        // Assuming friendsData['data']['friendships'] contains a list of relationships
-        final friendships = (friendsData['data']['friendships'] as List<dynamic>)
-            .map((friend) => Relationship.fromJson(friend as Map<String, dynamic>))
-            .toList();
-
-        // Update the profile's relationship data if needed
-        _profile = _profile?.copyWith(
-          relationship: friendships.isNotEmpty ? friendships.first : _profile?.relationship,
-        );
-      });
+      if (friendsData['result'] == 'SUCCESS' && 
+          friendsData['data'] != null && 
+          mounted) {
+        setState(() {
+          _friendsCount = friendsData['data']['totalElements'] ?? 0;
+        });
+      }
+    } catch (e) {
+      // Ignore error, just don't show friends count
     }
   }
 
@@ -200,16 +205,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // TODO: Navigate to edit profile screen
   }
 
-  void _handleAddFriend() {
-    // TODO: Implement add friend
+  Future<void> _handleAddFriend() async {
+    final friendshipProvider = context.read<FriendshipProvider>();
+    final success = await friendshipProvider.sendFriendRequest(widget.userId);
+    
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã gửi lời mời kết bạn'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendshipProvider.error ?? 'Không thể gửi lời mời kết bạn'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _handleFollow() {
     // TODO: Implement follow
   }
 
-  void _handleMessage() {
-    // TODO: Navigate to chat screen
+  Future<void> _handleMessage() async {
+    // Navigate to chat screen - create or get conversation
+    final messagingProvider = context.read<MessagingProvider>();
+    
+    try {
+      // Try to find existing conversation or create new one
+      final conversation = await messagingProvider.createConversation(
+        CreateConversationRequest(
+          type: ConversationType.direct,
+          participantIds: [widget.userId],
+        ),
+      );
+      
+      if (mounted) {
+        // Import ChatScreen at the top of the file
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(conversation: conversation),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể mở chat: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _handleEditCover() {
@@ -275,9 +327,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
           slivers: [
             // App Bar
             SliverAppBar(
+              automaticallyImplyLeading: false,
               pinned: true,
               expandedHeight: 0,
               title: Text(_profile!.displayName),
+              actions: _isCurrentUser
+                  ? [
+                      IconButton(
+                        icon: const Icon(Icons.qr_code_scanner),
+                        tooltip: 'Đăng nhập QR',
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const QrScannerScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ]
+                  : null,
             ),
 
             // Profile Content
@@ -321,6 +390,87 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
 
                         const SizedBox(height: 16),
+
+                        // Friends Section
+                        if (_friendsCount > 0)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => FriendsListScreen(
+                                      userId: widget.userId,
+                                    ),
+                                  ),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF6366F1),
+                                          Color(0xFF8B5CF6),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(
+                                      Icons.people,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Bạn bè',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF1F2937),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '$_friendsCount bạn bè',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 16,
+                                    color: Colors.grey[400],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
 
                         // Profile Info Sections
                         ProfileInfoSection(
@@ -413,7 +563,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavBar(currentIndex: 3),
     );
   }
 }

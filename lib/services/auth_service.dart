@@ -40,20 +40,40 @@ class AuthService {
         headers: response.headers
       );
 
-      final data = jsonDecode(response.body);
-      final authResponse = AuthResponse.fromJson(data);
+      // Decode response body with UTF-8 encoding
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
       
-      if (authResponse.isSuccess && authResponse.accessToken != null) {
-        Logger.debug('Login successful for user: ${authResponse.userInfo?.displayName}');
-        await storeAuthData(authResponse);
+      // Check if response is successful (status code 200-299)
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final authResponse = AuthResponse.fromJson(data);
+        
+        if (authResponse.isSuccess && authResponse.accessToken != null) {
+          Logger.debug('Login successful for user: ${authResponse.userInfo?.displayName}');
+          await storeAuthData(authResponse);
+          return authResponse;
+        } else {
+          Logger.error('Login failed', error: authResponse.message ?? 'Unknown error');
+          return authResponse;
+        }
       } else {
-        Logger.error(
-          'Login failed',
-          error: authResponse.message ?? 'Unknown error',
+        // Error response (400, 500, etc.) - parse error fields
+        Logger.error('Login failed with status ${response.statusCode}', error: data['message']);
+        
+        // Extract error message - handle both direct message and nested in exception
+        String errorMessage = data['message'] ?? 'Đăng nhập thất bại';
+        
+        // If it's a RuntimeException, extract the actual message
+        if (errorMessage.contains('RuntimeException:')) {
+          errorMessage = errorMessage.replaceAll('RuntimeException:', '').trim();
+        }
+        
+        return AuthResponse(
+          status: data['status'] ?? response.statusCode,
+          error: data['error'] ?? 'Error',
+          message: errorMessage,
+          details: data['details'],
         );
       }
-      
-      return authResponse;
     } catch (e, stackTrace) {
       Logger.networkError('POST', endpoint, e);
       Logger.error(
@@ -104,20 +124,40 @@ class AuthService {
         headers: response.headers
       );
 
-      final data = jsonDecode(response.body);
-      final authResponse = AuthResponse.fromJson(data);
+      // Decode response body with UTF-8 encoding
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
       
-      if (authResponse.isSuccess && authResponse.accessToken != null) {
-        Logger.debug('Registration successful for user: ${authResponse.userInfo?.displayName}');
-        await storeAuthData(authResponse);
+      // Check if response is successful (status code 200-299)
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final authResponse = AuthResponse.fromJson(data);
+        
+        if (authResponse.isSuccess && authResponse.accessToken != null) {
+          Logger.debug('Registration successful for user: ${authResponse.userInfo?.displayName}');
+          await storeAuthData(authResponse);
+          return authResponse;
+        } else {
+          Logger.error('Registration failed', error: authResponse.message ?? 'Unknown error');
+          return authResponse;
+        }
       } else {
-        Logger.error(
-          'Registration failed',
-          error: authResponse.message ?? 'Unknown error',
+        // Error response (400, 500, etc.) - parse error fields
+        Logger.error('Registration failed with status ${response.statusCode}', error: data['message']);
+        
+        // Extract error message - handle both direct message and nested in exception
+        String errorMessage = data['message'] ?? 'Đăng ký thất bại';
+        
+        // If it's a RuntimeException, extract the actual message
+        if (errorMessage.contains('RuntimeException:')) {
+          errorMessage = errorMessage.replaceAll('RuntimeException:', '').trim();
+        }
+        
+        return AuthResponse(
+          status: data['status'] ?? response.statusCode,
+          error: data['error'] ?? 'Error',
+          message: errorMessage,
+          details: data['details'],
         );
       }
-      
-      return authResponse;
     } catch (e, stackTrace) {
       Logger.networkError('POST', endpoint, e);
       Logger.error(
@@ -221,6 +261,67 @@ class AuthService {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
     };
+  }
+
+  Future<bool> validateToken() async {
+    final endpoint = '${Constants.baseUrl}/auth/validate';
+    Logger.debug('Validating stored token');
+    
+    try {
+      final token = await getStoredToken();
+      if (token == null) {
+        Logger.debug('No stored token found');
+        return false;
+      }
+
+      final headers = {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      };
+
+      Logger.request('GET', endpoint, headers: headers);
+
+      final response = await http.get(
+        Uri.parse(endpoint),
+        headers: headers,
+      ).timeout(
+        Constants.requestTimeout,
+        onTimeout: () {
+          throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
+        },
+      );
+
+      Logger.response('GET', endpoint, response.statusCode, 
+        body: response.body, 
+        headers: response.headers
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final isValid = data['valid'] == true;
+        Logger.debug('Token validation result: $isValid');
+        
+        if (!isValid) {
+          // Token không hợp lệ, xóa local storage
+          await logout();
+        }
+        
+        return isValid;
+      } else {
+        Logger.error('Token validation failed with status: ${response.statusCode}');
+        await logout();
+        return false;
+      }
+    } catch (e, stackTrace) {
+      Logger.networkError('GET', endpoint, e);
+      Logger.error(
+        'Error validating token',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      // Nếu có lỗi network, giữ token để thử lại sau
+      return false;
+    }
   }
 
   Future<bool> logout() async {

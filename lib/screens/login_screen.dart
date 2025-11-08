@@ -15,41 +15,26 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _serverIpController = TextEditingController();
-  final _serverPortController = TextEditingController();
   bool _obscurePassword = true;
-  bool _showServerConfig = false;
 
   @override
   void initState() {
     super.initState();
-    _loadServerConfig();
+    // Debug: http://localhost:8080/api
+    // Release: https://api.ainnect.me/api
+    print('🌐 Current API URL: ${ServerConfig.baseUrl}');
   }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _serverIpController.dispose();
-    _serverPortController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadServerConfig() async {
-    final ip = await ServerConfig.getServerIp();
-    final port = await ServerConfig.getServerPort();
-    _serverIpController.text = ip;
-    _serverPortController.text = port.toString();
-    Constants.baseUrl = ServerConfig.getBaseUrl(ip, port);
   }
 
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
-      // Lưu server config và cập nhật baseUrl
-      final ip = _serverIpController.text.trim();
-      final port = int.tryParse(_serverPortController.text.trim()) ?? ServerConfig.defaultServerPort;
-      await ServerConfig.saveServerConfig(ip, port);
-      Constants.baseUrl = ServerConfig.getBaseUrl(ip, port);
+      // baseUrl is auto-detected, no need to set it manually
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final success = await authProvider.login(
@@ -57,15 +42,74 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text,
       );
       
-      if (!success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(authProvider.errorMessage ?? 'Login failed'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      print('🔐 Login success: $success');
+      print('🔐 Error message: ${authProvider.errorMessage}');
+      print('🔐 Mounted: $mounted');
+      
+      if (!success) {
+        final errorMsg = authProvider.errorMessage ?? 'Đăng nhập thất bại';
+        print('🔐 Will show error dialog: $errorMsg');
+        
+        // Use addPostFrameCallback to ensure dialog shows after any rebuilds
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              print('🔐 Actually showing error dialog now');
+              _showErrorDialog(errorMsg);
+            }
+          });
+        }
       }
     }
+  }
+
+  void _showErrorDialog(String message) {
+    print('🔐 _showErrorDialog called with: $message');
+    
+    // Try both approaches
+    // 1. Show SnackBar first (always works)
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Chi tiết',
+          textColor: Colors.white,
+          onPressed: () {
+            _showErrorAlertDialog(message);
+          },
+        ),
+      ),
+    );
+  }
+  
+  void _showErrorAlertDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Lỗi đăng nhập'),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -186,165 +230,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _showServerConfig = !_showServerConfig;
-                        });
-                      },
-                      icon: Icon(
-                        _showServerConfig ? Icons.settings_outlined : Icons.settings,
-                        color: const Color(0xFF6366F1),
-                      ),
-                      label: Text(
-                        _showServerConfig ? 'Ẩn cấu hình' : 'Cấu hình server',
-                        style: const TextStyle(
-                          color: Color(0xFF6366F1),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (_showServerConfig) ...[
-                  const SizedBox(height: 16),
-                  Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 7,
-                            child: TextFormField(
-                              controller: _serverIpController,
-                              decoration: const InputDecoration(
-                                labelText: 'Server IP',
-                                prefixIcon: Icon(Icons.dns_outlined),
-                                border: OutlineInputBorder(),
-                                helperText: 'Mặc định: 10.0.2.2',
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Vui lòng nhập địa chỉ server';
-                                }
-                                // Kiểm tra IP hợp lệ
-                                final parts = value.split('.');
-                                if (parts.length != 4) {
-                                  return 'Địa chỉ IP không hợp lệ';
-                                }
-                                for (final part in parts) {
-                                  final number = int.tryParse(part);
-                                  if (number == null || number < 0 || number > 255) {
-                                    return 'Địa chỉ IP không hợp lệ';
-                                  }
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 3,
-                            child: TextFormField(
-                              controller: _serverPortController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Port',
-                                prefixIcon: Icon(Icons.numbers),
-                                border: OutlineInputBorder(),
-                                helperText: '8080',
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Nhập port';
-                                }
-                                final port = int.tryParse(value);
-                                if (port == null || port <= 0 || port > 65535) {
-                                  return 'Port không hợp lệ';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton.icon(
-                            onPressed: () async {
-                              if (_formKey.currentState!.validate()) {
-                                final ip = _serverIpController.text.trim();
-                                final port = int.tryParse(_serverPortController.text.trim()) ?? ServerConfig.defaultServerPort;
-                                await ServerConfig.saveServerConfig(ip, port);
-                                Constants.baseUrl = ServerConfig.getBaseUrl(ip, port);
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Đã lưu cấu hình server'),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            icon: const Icon(
-                              Icons.save_outlined,
-                              color: Color(0xFF6366F1),
-                              size: 20,
-                            ),
-                            label: const Text(
-                              'Lưu cấu hình',
-                              style: TextStyle(
-                                color: Color(0xFF6366F1),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          TextButton.icon(
-                            onPressed: () async {
-                              await ServerConfig.saveServerConfig(
-                                ServerConfig.defaultServerIp,
-                                ServerConfig.defaultServerPort,
-                              );
-                              _serverIpController.text = ServerConfig.defaultServerIp;
-                              _serverPortController.text = ServerConfig.defaultServerPort.toString();
-                              Constants.baseUrl = ServerConfig.getBaseUrl(
-                                ServerConfig.defaultServerIp,
-                                ServerConfig.defaultServerPort,
-                              );
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Đã khôi phục cấu hình mặc định'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              }
-                            },
-                            icon: const Icon(
-                              Icons.restore_outlined,
-                              color: Color(0xFF6B7280),
-                              size: 20,
-                            ),
-                            label: const Text(
-                              'Khôi phục mặc định',
-                              style: TextStyle(
-                                color: Color(0xFF6B7280),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
+                // Server URL auto-detected:
+                // Debug: http://localhost:8080/api
+                // Release: https://api.ainnect.me/api
                 TextButton(
                   onPressed: () {
                     Navigator.pushNamed(context, '/register');

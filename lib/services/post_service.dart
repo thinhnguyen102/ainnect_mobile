@@ -602,4 +602,48 @@ class PostService {
       return null;
     }
   }
+
+  Future<Map<String, dynamic>> fetchPostById(int postId, String token) async {
+    final endpoint = '${Constants.baseUrl}/posts/$postId';
+    final headers = {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+
+    Logger.debug('Fetching post by ID: $postId');
+    Logger.request('GET', endpoint, headers: headers);
+
+    try {
+      final response = await http.get(
+        Uri.parse(endpoint),
+        headers: headers,
+      ).timeout(
+        Constants.requestTimeout,
+        onTimeout: () {
+          throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
+        },
+      );
+
+      Logger.response('GET', endpoint, response.statusCode,
+          body: response.body, headers: response.headers);
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        Logger.error(
+          'Failed to fetch post by ID',
+          error: 'Status code: ${response.statusCode}, Body: ${response.body}',
+        );
+        return {'result': 'FAILURE', 'message': 'Post not found'};
+      }
+    } catch (e, stackTrace) {
+      Logger.networkError('GET', endpoint, e);
+      Logger.error(
+        'Error fetching post by ID',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return {'result': 'FAILURE', 'message': 'Error: $e'};
+    }
+  }
 }

@@ -51,27 +51,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
           Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
         }
       } else if (mounted) {
-        String errorMessage = authProvider.errorMessage ?? 'Đăng ký thất bại';
-        // Xử lý các loại lỗi validation
-        if (errorMessage.contains('Email đã tồn tại')) {
-          errorMessage = 'Email này đã được sử dụng. Vui lòng dùng email khác.';
-        } else if (errorMessage.contains('Username đã tồn tại')) {
-          errorMessage = 'Tên đăng nhập này đã tồn tại. Vui lòng chọn tên khác.';
-        } else if (errorMessage.contains('Validation Failed')) {
-          if (errorMessage.contains('displayName')) {
-            errorMessage = 'Tên hiển thị không được quá 65 ký tự';
-          } else if (errorMessage.contains('password')) {
-            errorMessage = 'Mật khẩu phải từ 8-255 ký tự';
-          }
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-          ),
-        );
+        // Show detailed error message from backend
+        _showErrorDialog(authProvider.errorMessage ?? 'Đăng ký thất bại');
       }
     }
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Lỗi đăng ký'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Text(message),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

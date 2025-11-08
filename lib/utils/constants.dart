@@ -1,5 +1,8 @@
+import 'server_config.dart';
+
 class Constants {
-  static late String baseUrl;
+  static String get baseUrl => ServerConfig.baseUrl;
+  
   static const String loginEndpoint = '/auth/login';
   static const String registerEndpoint = '/auth/register';
   static const String userEndpoint = '/auth/user';

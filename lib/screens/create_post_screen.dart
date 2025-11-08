@@ -322,7 +322,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           );
         },
       ),
-      bottomNavigationBar: BottomNavBar(currentIndex: 1),
     );
   }
 }

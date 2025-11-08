@@ -25,6 +25,7 @@ class AuthProvider extends ChangeNotifier {
   User? get user => _user;
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _state == AuthState.authenticated;
+  Future<String?> get token async => await _authService.getStoredToken(); // Updated getter to return Future<String?>
 
   Future<String?> getAccessToken() async {
     return await _authService.getStoredToken();
@@ -36,11 +37,21 @@ class AuthProvider extends ChangeNotifier {
     try {
       final token = await _authService.getStoredToken();
       if (token != null) {
-        final user = await _authService.getCurrentUser();
-        if (user != null) {
-          _user = user;
-          _setState(AuthState.authenticated);
+        // Validate token with backend
+        final isValid = await _authService.validateToken();
+        
+        if (isValid) {
+          // Token valid, get user info
+          final user = await _authService.getCurrentUser();
+          if (user != null) {
+            _user = user;
+            _setState(AuthState.authenticated);
+          } else {
+            await _authService.logout();
+            _setState(AuthState.unauthenticated);
+          }
         } else {
+          // Token invalid, logout
           await _authService.logout();
           _setState(AuthState.unauthenticated);
         }
@@ -59,13 +70,20 @@ class AuthProvider extends ChangeNotifier {
       final loginRequest = LoginRequest(usernameOrEmail: email, password: password);
       final response = await _authService.login(loginRequest);
       
+      print('🔐 Login response - status: ${response.status}, isSuccess: ${response.isSuccess}');
+      print('🔐 Login response - message: ${response.message}');
+      
       if (response.isSuccess && response.accessToken != null) {
         _user = response.userInfo;
         await _authService.storeAuthData(response);
         _setState(AuthState.authenticated);
         return true;
       } else {
-        _setError(response.message ?? 'Đăng nhập thất bại');
+        // Use detailed error message from AuthResponse
+        final errorMsg = response.getDetailedErrorMessage();
+        print('🔐 Setting error: $errorMsg');
+        _setError(errorMsg);
+        print('🔐 Error message in provider: $_errorMessage');
         return false;
       }
     } catch (e) {
@@ -75,6 +93,7 @@ class AuthProvider extends ChangeNotifier {
       } else {
         errorMessage = 'Lỗi kết nối: ${e.toString()}';
       }
+      print('🔐 Exception: $errorMessage');
       _setError(errorMessage);
       return false;
     }
@@ -103,7 +122,8 @@ class AuthProvider extends ChangeNotifier {
         _setState(AuthState.authenticated);
         return true;
       } else {
-        _setError(response.message ?? 'Đăng ký thất bại');
+        // Use detailed error message from AuthResponse
+        _setError(response.getDetailedErrorMessage());
         return false;
       }
     } catch (e) {
@@ -147,4 +167,6 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = message;
     notifyListeners();
   }
+
+  int? get userId => _user?.id;
 }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../screens/friend_requests_screen.dart';
+import '../screens/group_list_screen.dart';
+import '../screens/profile_screen.dart';
+import '../screens/home_screen.dart';
 
 class BottomNavBar extends StatefulWidget {
   final int currentIndex;
@@ -14,9 +17,10 @@ class _BottomNavBarState extends State<BottomNavBar> {
   late int _currentIndex;
 
   final List<Widget> _screens = [
-    FriendRequestsScreen(friendRequests: []), // Replace with actual data
-    Text('Groups Screen'),
-    Text('Profile Screen'),
+    HomeScreen(),
+    const FriendRequestsScreen(),
+    GroupListScreen(),
+    ProfileScreen(userId: 1), // Replace with actual userId
     Text('Notifications Screen'),
   ];
 
@@ -33,7 +37,12 @@ class _BottomNavBarState extends State<BottomNavBar> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => _screens[index],
+        builder: (context) {
+          if (index == 0) {
+            return HomeScreen();
+          }
+          return _screens[index];
+        },
       ),
     );
   }
@@ -48,20 +57,29 @@ class _BottomNavBarState extends State<BottomNavBar> {
       backgroundColor: Colors.white,
       items: const [
         BottomNavigationBarItem(
-          icon: Icon(Icons.person_add),
-          label: 'Friend Requests',
+          icon: Icon(Icons.home_outlined),
+          activeIcon: Icon(Icons.home),
+          label: 'Home',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.group),
+          icon: Icon(Icons.person_add_alt_1_outlined),
+          activeIcon: Icon(Icons.person_add_alt_1),
+          label: 'Requests',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.group_outlined),
+          activeIcon: Icon(Icons.group),
           label: 'Groups',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.person),
+          icon: Icon(Icons.person_outline),
+          activeIcon: Icon(Icons.person),
           label: 'Profile',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.notifications),
-          label: 'Notifications',
+          icon: Icon(Icons.notifications_none),
+          activeIcon: Icon(Icons.notifications),
+          label: 'Alerts',
         ),
       ],
     );

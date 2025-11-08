@@ -52,6 +52,23 @@ dependencies:
   
   # Image picker for media selection
   image_picker: ^1.0.4
+  
+  # QR code scanner
+  mobile_scanner: ^5.2.3
+  
+  # Video player
+  video_player: ^2.9.2
+  chewie: ^1.8.5
+  
+  # WebSocket for real-time messaging
+  stomp_dart_client: ^2.0.0
+  web_socket_channel: ^3.0.1
+  
+  # Timeago for message timestamps
+  timeago: ^3.7.0
+  
+  # URL launcher for notifications
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

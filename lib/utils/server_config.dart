@@ -1,28 +1,23 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 
 class ServerConfig {
-  static const String _serverIpKey = 'server_ip';
-  static const String _serverPortKey = 'server_port';
-  static const String defaultServerIp = '10.0.2.2';
-  static const int defaultServerPort = 8080;
-
-  static Future<void> saveServerConfig(String ip, int port) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_serverIpKey, ip);
-    await prefs.setInt(_serverPortKey, port);
+  static const String productionApiUrl = 'https://api.ainnect.me/api';
+  
+  static const String developmentApiUrl = 'http://10.0.2.2:8080/api';
+  
+  static String get baseUrl {
+    if (kReleaseMode) {
+      return productionApiUrl;
+    } else {
+      return developmentApiUrl;
+    }
   }
-
-  static Future<String> getServerIp() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_serverIpKey) ?? defaultServerIp;
-  }
-
-  static Future<int> getServerPort() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_serverPortKey) ?? defaultServerPort;
-  }
-
+  
   static String getBaseUrl(String ip, int port) {
-    return 'http://$ip:$port/api';
+    return baseUrl;
+  }
+  
+  static String get baseUrlWithoutApi {
+    return baseUrl.replaceAll('/api', '');
   }
 }
