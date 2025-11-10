@@ -100,6 +100,31 @@ class MessagingProvider with ChangeNotifier {
         }
         notifyListeners();
         break;
+      case 'MESSAGE_REACTION':
+        // Handle reaction update
+        if (wsMessage.data != null && wsMessage.conversationId != null) {
+          try {
+            Logger.debug('Handling MESSAGE_REACTION: ${wsMessage.data}');
+            final data = wsMessage.data as Map<String, dynamic>;
+            final messageId = data['messageId'] as int?;
+            final reactionCounts = data['reactionCounts'] as Map<String, dynamic>?;
+            final currentUserReaction = data['currentUserReaction'] as String?;
+            
+            if (messageId != null) {
+              _updateMessageReactions(
+                wsMessage.conversationId!,
+                messageId,
+                reactionCounts,
+                currentUserReaction,
+              );
+            }
+          } catch (e, stackTrace) {
+            Logger.error('❌ Error handling MESSAGE_REACTION: $e');
+            Logger.error('Stack trace: $stackTrace');
+          }
+        }
+        notifyListeners();
+        break;
       case 'ERROR':
         _error = wsMessage.data?.toString() ?? 'Unknown error';
         Logger.error('WebSocket ERROR message: $_error');
@@ -137,6 +162,54 @@ class MessagingProvider with ChangeNotifier {
       if (messageIndex != -1) {
         // Update message read status (you might need to add a 'isRead' field to MessageResponse)
         Logger.debug('✅ Message marked as read in local cache');
+      }
+    }
+  }
+  
+  void _updateMessageReactions(
+    int conversationId,
+    int messageId,
+    Map<String, dynamic>? reactionCounts,
+    String? currentUserReaction,
+  ) {
+    Logger.debug('💗 Updating reactions for message $messageId in conversation $conversationId');
+    
+    if (_conversationMessages.containsKey(conversationId)) {
+      final messages = _conversationMessages[conversationId]!;
+      final messageIndex = messages.indexWhere((m) => m.id == messageId);
+      
+      if (messageIndex != -1) {
+        // Convert dynamic values to int
+        final convertedCounts = reactionCounts?.map(
+          (key, value) => MapEntry(key, value is int ? value : int.tryParse(value.toString()) ?? 0),
+        );
+        
+        // Create updated message with new reactions
+        final oldMessage = messages[messageIndex];
+        final updatedMessage = MessageResponse(
+          id: oldMessage.id,
+          conversationId: oldMessage.conversationId,
+          senderId: oldMessage.senderId,
+          senderUsername: oldMessage.senderUsername,
+          senderDisplayName: oldMessage.senderDisplayName,
+          senderAvatarUrl: oldMessage.senderAvatarUrl,
+          content: oldMessage.content,
+          messageType: oldMessage.messageType,
+          attachments: oldMessage.attachments,
+          createdAt: oldMessage.createdAt,
+          deletedAt: oldMessage.deletedAt,
+          isRead: oldMessage.isRead,
+          isEdited: oldMessage.isEdited,
+          editedAt: oldMessage.editedAt,
+          reactionCounts: convertedCounts,
+          currentUserReaction: currentUserReaction,
+          replyTo: oldMessage.replyTo,
+        );
+        
+        messages[messageIndex] = updatedMessage;
+        Logger.debug('✅ Reactions updated in local cache');
+      } else {
+        Logger.debug('⚠️ Message $messageId not found in local cache');
       }
     }
   }

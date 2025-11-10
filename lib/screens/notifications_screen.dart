@@ -479,7 +479,7 @@ class _NotificationItem extends StatelessWidget {
         return const Color(0xFF6B7280);
       case NotificationType.friendRequest:
       case NotificationType.friendAccept:
-        return const Color(0xFF8B5CF6);
+        return const Color(0xFF1E88E5);
       case NotificationType.mention:
         return const Color(0xFF06B6D4);
       case NotificationType.share:

@@ -400,12 +400,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFF6366F1),
-                          const Color(0xFF8B5CF6),
-                        ],
-                      ),
+                      color: const Color(0xFF1E88E5),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(

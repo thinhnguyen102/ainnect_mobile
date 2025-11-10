@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' as http_parser;
 import '../models/post.dart';
 import '../models/comment.dart';
 import '../models/page_response.dart';
@@ -394,8 +396,8 @@ class PostService {
     }
   }
 
-  Future<CommentResponse> getPostComments(int postId, {int page = 0, int size = 10}) async {
-    final endpoint = '${Constants.baseUrl}/posts/$postId/comments?page=$page&size=$size';
+  Future<CommentResponse> getPostComments(String token, int postId, {int page = 0, int size = 10}) async {
+    final endpoint = '${Constants.baseUrl}/comments/by-post/$postId?page=$page&size=$size';
     Logger.debug('Fetching comments for post: postId=$postId, page=$page, size=$size');
     
     try {
@@ -403,6 +405,7 @@ class PostService {
         Uri.parse(endpoint),
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
         },
       ).timeout(
         Constants.requestTimeout,
@@ -563,21 +566,56 @@ class PostService {
         'Authorization': 'Bearer $token',
       });
 
-      // Thêm các trường dữ liệu
       formData.fields.addAll({
         'content': request.content,
         'visibility': request.visibility,
         if (request.groupId != null) 'groupId': request.groupId.toString(),
       });
 
-      // Thêm files
+      Logger.debug('Uploading ${request.mediaFiles.length} media files');
       for (final filePath in request.mediaFiles) {
-        final file = await http.MultipartFile.fromPath('mediaFiles', filePath);
-        formData.files.add(file);
+        try {
+          final file = File(filePath);
+          if (await file.exists()) {
+            String? mimeType;
+            final extension = filePath.toLowerCase().split('.').last;
+            if (['jpg', 'jpeg'].contains(extension)) {
+              mimeType = 'image/jpeg';
+            } else if (extension == 'png') {
+              mimeType = 'image/png';
+            } else if (extension == 'gif') {
+              mimeType = 'image/gif';
+            } else if (extension == 'webp') {
+              mimeType = 'image/webp';
+            } else if (extension == 'mp4') {
+              mimeType = 'video/mp4';
+            } else if (extension == 'mov') {
+              mimeType = 'video/quicktime';
+            } else if (extension == 'avi') {
+              mimeType = 'video/x-msvideo';
+            } else if (extension == 'mkv') {
+              mimeType = 'video/x-matroska';
+            }
+            
+            final multipartFile = await http.MultipartFile.fromPath(
+              'mediaFiles', // Key phải là 'mediaFiles' để backend nhận được
+              filePath,
+              contentType: mimeType != null ? http_parser.MediaType.parse(mimeType) : null,
+            );
+            formData.files.add(multipartFile);
+            Logger.debug('Added file: $filePath (${mimeType ?? 'auto-detect'})');
+          } else {
+            Logger.error('File not found: $filePath');
+          }
+        } catch (e) {
+          Logger.error('Error adding file $filePath: $e');
+        }
       }
 
-      // Gửi request
-      final response = await formData.send().timeout(const Duration(seconds: 30));
+      // Gửi request với timeout dài hơn cho video
+      final response = await formData.send().timeout(
+        const Duration(seconds: 120), // Tăng timeout cho video
+      );
       final responseBody = await response.stream.bytesToString();
 
       Logger.api(
@@ -587,18 +625,21 @@ class PostService {
         response: responseBody,
       );
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         final data = jsonDecode(responseBody);
         return Post.fromJson(data);
+      } else {
+        Logger.error('Create post failed: ${response.statusCode} - $responseBody');
       }
 
       return null;
-    } catch (e) {
+    } catch (e, stackTrace) {
       Logger.api(
         'POST',
         '${Constants.baseUrl}/posts',
         error: e,
       );
+      Logger.error('Error creating post', error: e, stackTrace: stackTrace);
       return null;
     }
   }

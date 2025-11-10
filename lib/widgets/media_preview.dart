@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../utils/url_helper.dart';
 import 'simple_video_preview.dart';
@@ -26,11 +27,16 @@ class MediaPreview extends StatefulWidget {
 
 class _MediaPreviewState extends State<MediaPreview> {
   late Future<Map<String, String>> _headersFuture;
+  bool _isLocalFile = false;
 
   @override
   void initState() {
     super.initState();
-    _headersFuture = UrlHelper.getHeaders();
+    // Check if it's a local file path
+    _isLocalFile = !widget.mediaUrl.startsWith('http');
+    if (!_isLocalFile) {
+      _headersFuture = UrlHelper.getHeaders();
+    }
   }
 
   @override
@@ -78,65 +84,103 @@ class _MediaPreviewState extends State<MediaPreview> {
 
   Widget _buildMediaWidget(AsyncSnapshot<Map<String, String>> snapshot) {
     if (widget.mediaType.toLowerCase() == 'video') {
-      // Simple video preview without video_player
+      // Video preview - use SimpleVideoPreview for both local and network videos
       return SimpleVideoPreview(
         videoUrl: widget.mediaUrl,
         thumbnailUrl: widget.thumbnailUrl,
+        isLocalFile: _isLocalFile,
       );
     } else {
       // Image
-      if (!snapshot.hasData) {
-        return const Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFF6366F1),
-          ),
+      if (_isLocalFile) {
+        // Local image file
+        final file = File(widget.mediaUrl);
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Colors.grey[200],
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.grey,
+                      size: 48,
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Không thể tải ảnh',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      } else {
+        // Network image
+        if (!snapshot.hasData) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFF1E88E5),
+            ),
+          );
+        }
+
+        return Image.network(
+          UrlHelper.fixImageUrl(widget.mediaUrl),
+          headers: snapshot.data,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                    : null,
+                color: const Color(0xFF1E88E5),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Colors.grey[200],
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.grey,
+                      size: 48,
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Không thể tải ảnh',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       }
-
-      return Image.network(
-        UrlHelper.fixImageUrl(widget.mediaUrl),
-        headers: snapshot.data,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-              color: const Color(0xFF6366F1),
-            ),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            color: Colors.grey[200],
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.broken_image_outlined,
-                    color: Colors.grey,
-                    size: 48,
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Không thể tải ảnh',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
     }
   }
 }

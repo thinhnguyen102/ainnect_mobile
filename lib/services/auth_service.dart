@@ -324,6 +324,79 @@ class AuthService {
     }
   }
 
+  Future<Map<String, dynamic>> changePassword({
+    required String oldPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final endpoint = '${Constants.baseUrl}/users/change-password';
+    final headers = await _getHeaders();
+    final body = jsonEncode({
+      'oldPassword': oldPassword,
+      'newPassword': newPassword,
+      'confirmPassword': confirmPassword,
+    });
+    
+    Logger.request('PUT', endpoint, headers: headers, body: body);
+    
+    try {
+      final response = await http.put(
+        Uri.parse(endpoint),
+        headers: headers,
+        body: body,
+      ).timeout(
+        Constants.requestTimeout,
+        onTimeout: () {
+          throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
+        },
+      );
+
+      Logger.response('PUT', endpoint, response.statusCode, body: response.body);
+
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      
+      if (response.statusCode == 200) {
+        Logger.debug('Password changed successfully');
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Đổi mật khẩu thành công',
+        };
+      } else {
+        Logger.error('Change password failed', error: data['message']);
+        
+        String errorMessage = data['message'] ?? 'Đổi mật khẩu thất bại';
+        
+        // Handle JWT expired error
+        if (errorMessage.contains('JWT expired')) {
+          errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+          await logout(); // Auto logout if token expired
+        } else if (errorMessage.contains('Mật khẩu cũ không đúng')) {
+          errorMessage = 'Mật khẩu cũ không đúng';
+        }
+        
+        return {
+          'success': false,
+          'message': errorMessage,
+        };
+      }
+    } catch (e, stackTrace) {
+      Logger.networkError('PUT', endpoint, e);
+      Logger.error('Change password request failed', error: e, stackTrace: stackTrace);
+      
+      String errorMessage;
+      if (e is TimeoutException) {
+        errorMessage = e.message ?? 'Không thể kết nối đến server. Vui lòng thử lại sau.';
+      } else {
+        errorMessage = 'Lỗi kết nối: ${e.toString()}';
+      }
+      
+      return {
+        'success': false,
+        'message': errorMessage,
+      };
+    }
+  }
+
   Future<bool> logout() async {
     try {
       final endpoint = '${Constants.baseUrl}/auth/logout';

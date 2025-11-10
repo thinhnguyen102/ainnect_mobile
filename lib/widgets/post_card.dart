@@ -149,7 +149,7 @@ class _PostCardState extends State<PostCard> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF6366F1).withOpacity(0.2),
+                          color: const Color(0xFF1E88E5).withOpacity(0.2),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),

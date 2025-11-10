@@ -40,10 +40,11 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             
             // Enable ProGuard/R8 with custom rules
+            // Use proguard-android.txt instead of proguard-android-optimize.txt for better compatibility
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
+                getDefaultProguardFile("proguard-android.txt"),
                 "proguard-rules.pro"
             )
         }

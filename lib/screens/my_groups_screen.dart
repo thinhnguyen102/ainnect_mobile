@@ -86,7 +86,7 @@ class _MyGroupsScreenState extends State<MyGroupsScreen> {
                                     end: Alignment.bottomRight,
                                     colors: [
                                       const Color(0xFF6366F1),
-                                      const Color(0xFF8B5CF6),
+                                      const Color(0xFF1E88E5),
                                     ],
                                   ),
                                 ),
@@ -104,7 +104,7 @@ class _MyGroupsScreenState extends State<MyGroupsScreen> {
                                   end: Alignment.bottomRight,
                                   colors: [
                                     const Color(0xFF6366F1),
-                                    const Color(0xFF8B5CF6),
+                                    const Color(0xFF1E88E5),
                                   ],
                                 ),
                               ),
@@ -376,7 +376,7 @@ class _MyGroupsScreenState extends State<MyGroupsScreen> {
                         end: Alignment.bottomRight,
                         colors: [
                           Color(0xFF6366F1),
-                          Color(0xFF8B5CF6),
+                          Color(0xFF1E88E5),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(16),

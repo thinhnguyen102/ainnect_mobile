@@ -27,6 +27,21 @@ enum MessageType {
   file,
 }
 
+enum ReactionType {
+  @JsonValue('like')
+  like,
+  @JsonValue('love')
+  love,
+  @JsonValue('haha')
+  haha,
+  @JsonValue('wow')
+  wow,
+  @JsonValue('sad')
+  sad,
+  @JsonValue('angry')
+  angry,
+}
+
 @JsonSerializable(explicitToJson: true)
 class ConversationResponse {
   final int id;

@@ -539,7 +539,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                      colors: [Color(0xFF6366F1), Color(0xFF1E88E5)],
                     ),
                   ),
                   child: ClipRRect(

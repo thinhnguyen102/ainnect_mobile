@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import '../services/group_service.dart';
-import 'package:ainnect/services/group_service.dart';
 import 'package:provider/provider.dart';
-import 'package:ainnect/providers/auth_provider.dart'; 
-import 'package:ainnect/screens/group_detail_screen.dart'; // Added import for GroupDetailScreen
-import 'package:ainnect/screens/create_group_screen.dart'; // Added import for CreateGroupScreen
-import 'package:ainnect/screens/my_groups_screen.dart'; // Added import for MyGroupsScreen
+import '../services/group_service.dart';
+import '../providers/auth_provider.dart'; 
+import 'group_detail_screen.dart';
+import 'create_group_screen.dart';
+import 'my_groups_screen.dart';
 
 class GroupListScreen extends StatefulWidget {
   const GroupListScreen({Key? key}) : super(key: key);
@@ -348,7 +347,7 @@ class _GroupListScreenState extends State<GroupListScreen> {
           gradient: const LinearGradient(
             colors: [
               Color(0xFF6366F1),
-              Color(0xFF8B5CF6),
+              Color(0xFF1E88E5),
             ],
           ),
           boxShadow: [

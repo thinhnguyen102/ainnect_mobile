@@ -15,18 +15,29 @@ class GroupDetailScreen extends StatefulWidget {
 }
 
 class _GroupDetailScreenState extends State<GroupDetailScreen> {
-  late Future<Map<String, dynamic>> _groupFuture;
-  late Future<Map<String, dynamic>> _postsFuture;
+  Future<Map<String, dynamic>>? _groupFuture;
+  Future<Map<String, dynamic>>? _postsFuture;
+  bool _isInitialized = false;
 
   @override
-  void initState() {
-    super.initState();
-    Provider.of<AuthProvider>(context, listen: false).token.then((authToken) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      _isInitialized = true;
+      _loadData();
+    }
+  }
+
+  Future<void> _loadData() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final authToken = await authProvider.getAccessToken();
+    
+    if (authToken != null) {
       setState(() {
-        _groupFuture = GroupService().fetchGroupDetail(widget.groupId, token: authToken!);
+        _groupFuture = GroupService().fetchGroupDetail(widget.groupId, token: authToken);
         _postsFuture = GroupService().fetchGroupPosts(groupId: widget.groupId, token: authToken);
       });
-    });
+    }
   }
 
   Widget _buildPostsList(List<dynamic> posts) {
@@ -350,7 +361,13 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Color(0xFF1F2937)),
       ),
-      body: FutureBuilder<Map<String, dynamic>>(
+      body: _groupFuture == null
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF6366F1),
+              ),
+            )
+          : FutureBuilder<Map<String, dynamic>>(
         future: _groupFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -437,7 +454,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                                 end: Alignment.bottomRight,
                                 colors: [
                                   const Color(0xFF6366F1),
-                                  const Color(0xFF8B5CF6),
+                                  const Color(0xFF1E88E5),
                                 ],
                               ),
                             ),

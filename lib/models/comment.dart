@@ -13,6 +13,10 @@ class Comment {
   final int? parentId;
   final String content;
   final int reactionCount;
+  final int? replyCount;
+  final bool? hasChild;
+  final bool? currentUserReacted;
+  final String? currentUserReactionType;
   final String createdAt;
   final String updatedAt;
 
@@ -26,6 +30,10 @@ class Comment {
     this.parentId,
     required this.content,
     required this.reactionCount,
+    this.replyCount,
+    this.hasChild,
+    this.currentUserReacted,
+    this.currentUserReactionType,
     required this.createdAt,
     required this.updatedAt,
   });

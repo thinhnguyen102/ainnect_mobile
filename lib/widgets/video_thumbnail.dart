@@ -377,7 +377,7 @@ class _VideoPlayerModalState extends State<VideoPlayerModal> {
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6366F1),
+                backgroundColor: const Color(0xFF1E88E5),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -456,7 +456,7 @@ class _VideoPlayerModalState extends State<VideoPlayerModal> {
                   _controller!,
                   allowScrubbing: true,
                   colors: const VideoProgressColors(
-                    playedColor: Color(0xFF6366F1),
+                    playedColor: Color(0xFF1E88E5),
                     bufferedColor: Colors.grey,
                     backgroundColor: Colors.white24,
                   ),

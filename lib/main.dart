@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:timeago/timeago.dart' as timeago;
 import 'providers/auth_provider.dart';
 import 'providers/messaging_provider.dart';
 import 'providers/notification_provider.dart';
@@ -9,9 +10,13 @@ import 'services/websocket_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/main_screen.dart';
+import 'screens/change_password_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Set timeago Vietnamese locale
+  timeago.setLocaleMessages('vi', timeago.ViMessages());
   
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
@@ -46,7 +51,7 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6366F1),
+            seedColor: const Color(0xFF1E88E5),
             brightness: Brightness.light,
           ),
           useMaterial3: true,
@@ -57,6 +62,7 @@ class MyApp extends StatelessWidget {
           '/login': (context) => const LoginScreen(),
           '/register': (context) => const RegisterScreen(),
           '/home': (context) => const MainScreen(),
+          '/change-password': (context) => const ChangePasswordScreen(),
         },
       ),
     );

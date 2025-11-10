@@ -16,6 +16,10 @@ Comment _$CommentFromJson(Map<String, dynamic> json) => Comment(
   parentId: (json['parentId'] as num?)?.toInt(),
   content: json['content'] as String,
   reactionCount: (json['reactionCount'] as num).toInt(),
+  replyCount: (json['replyCount'] as num?)?.toInt(),
+  hasChild: json['hasChild'] as bool?,
+  currentUserReacted: json['currentUserReacted'] as bool?,
+  currentUserReactionType: json['currentUserReactionType'] as String?,
   createdAt: json['createdAt'] as String,
   updatedAt: json['updatedAt'] as String,
 );
@@ -30,6 +34,10 @@ Map<String, dynamic> _$CommentToJson(Comment instance) => <String, dynamic>{
   'parentId': instance.parentId,
   'content': instance.content,
   'reactionCount': instance.reactionCount,
+  'replyCount': instance.replyCount,
+  'hasChild': instance.hasChild,
+  'currentUserReacted': instance.currentUserReacted,
+  'currentUserReactionType': instance.currentUserReactionType,
   'createdAt': instance.createdAt,
   'updatedAt': instance.updatedAt,
 };

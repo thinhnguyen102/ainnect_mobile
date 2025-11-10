@@ -407,7 +407,7 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> with Single
                 backgroundImage: request['avatarUrl'] != null
                     ? NetworkImage(request['avatarUrl'])
                     : null,
-                backgroundColor: const Color(0xFF8B5CF6),
+                backgroundColor: const Color(0xFF1E88E5),
                 child: request['avatarUrl'] == null
                     ? Text(
                         (request['displayName'] ?? 'U')[0].toUpperCase(),

@@ -6,7 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import '../providers/messaging_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/messaging_models.dart';
+import '../services/messaging_service.dart';
 import '../utils/url_helper.dart';
+import '../widgets/message_reaction_picker.dart';
 
 class ChatScreen extends StatefulWidget {
   final ConversationResponse conversation;
@@ -173,6 +175,26 @@ class _ChatScreenState extends State<ChatScreen> {
     
     // Scroll to bottom
     _scrollToBottom();
+  }
+
+  Future<void> _reactToMessage(MessageResponse message, ReactionType reactionType) async {
+    try {
+      final messagingService = MessagingService();
+      await messagingService.reactToMessage(message.id, reactionType.name);
+      
+      // Refresh messages to get updated reactions
+      if (mounted) {
+        final provider = context.read<MessagingProvider>();
+        provider.loadMessages(widget.conversation.id, refresh: true);
+      }
+    } catch (e) {
+      print('Error reacting to message: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể thả cảm xúc: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -375,7 +397,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       isMe: isMe,
                       showAvatar: _shouldShowAvatar(messages, index, isMe),
                       onReact: (reactionType) {
-                        provider.reactToMessage(message.id, reactionType);
+                        _reactToMessage(message, reactionType);
                       },
                     );
                   },
@@ -539,7 +561,7 @@ class _MessageBubble extends StatelessWidget {
   final MessageResponse message;
   final bool isMe;
   final bool showAvatar;
-  final Function(String) onReact;
+  final Function(ReactionType) onReact;
 
   const _MessageBubble({
     Key? key,
@@ -560,54 +582,87 @@ class _MessageBubble extends StatelessWidget {
           if (!isMe && showAvatar) _buildAvatar() else const SizedBox(width: 32),
           if (!isMe && !showAvatar) const SizedBox(width: 8),
           Flexible(
-            child: GestureDetector(
-              onLongPress: () => _showReactionPicker(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isMe ? const Color(0xFF6366F1) : Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
+            child: Column(
+              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onLongPress: () => _showReactionPicker(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isMe ? const Color(0xFF1E88E5) : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 5,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!isMe)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          message.senderDisplayName,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF6366F1),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!isMe)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              message.senderDisplayName,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1E88E5),
+                              ),
+                            ),
+                          ),
+                        _buildMessageContent(),
+                        const SizedBox(height: 4),
+                        Text(
+                          timeago.format(message.createdAt, locale: 'vi'),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isMe ? Colors.white70 : Colors.grey[600],
                           ),
                         ),
-                      ),
-                    _buildMessageContent(),
-                    const SizedBox(height: 4),
-                    Text(
-                      timeago.format(message.createdAt, locale: 'vi'),
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: isMe ? Colors.white70 : Colors.grey[600],
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                // Display reactions below the message
+                MessageReactionDisplay(
+                  reactionCounts: message.reactionCounts,
+                  currentUserReaction: message.currentUserReaction,
+                  onReactionTap: (reaction) {
+                    if (message.currentUserReaction?.toLowerCase() == reaction.name.toLowerCase()) {
+                      // Remove reaction if same reaction tapped
+                      _removeReaction(context);
+                    } else {
+                      // Add or change reaction
+                      onReact(reaction);
+                    }
+                  },
+                  onReactionLongPress: () => _showReactionPicker(context),
+                ),
+              ],
             ),
           ),
           if (isMe) const SizedBox(width: 8),
         ],
       ),
     );
+  }
+  
+  void _removeReaction(BuildContext context) async {
+    try {
+      final messagingService = MessagingService();
+      await messagingService.removeReaction(message.id);
+      
+      // Update local state through provider
+      final messagingProvider = context.read<MessagingProvider>();
+      messagingProvider.loadMessages(message.conversationId, refresh: true);
+    } catch (e) {
+      print('Error removing reaction: $e');
+    }
   }
 
   Widget _buildAvatar() {
@@ -751,11 +806,13 @@ class _MessageBubble extends StatelessWidget {
   void _showReactionPicker(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) => Container(
         padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -767,79 +824,14 @@ class _MessageBubble extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _ReactionButton(
-                  emoji: '❤️',
-                  onTap: () {
-                    Navigator.pop(context);
-                    onReact('LOVE');
-                  },
-                ),
-                _ReactionButton(
-                  emoji: '😄',
-                  onTap: () {
-                    Navigator.pop(context);
-                    onReact('HAHA');
-                  },
-                ),
-                _ReactionButton(
-                  emoji: '😮',
-                  onTap: () {
-                    Navigator.pop(context);
-                    onReact('WOW');
-                  },
-                ),
-                _ReactionButton(
-                  emoji: '😢',
-                  onTap: () {
-                    Navigator.pop(context);
-                    onReact('SAD');
-                  },
-                ),
-                _ReactionButton(
-                  emoji: '👍',
-                  onTap: () {
-                    Navigator.pop(context);
-                    onReact('LIKE');
-                  },
-                ),
-              ],
+            MessageReactionPicker(
+              onReactionSelected: (reaction) {
+                Navigator.pop(context);
+                onReact(reaction);
+              },
             ),
+            const SizedBox(height: 20),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ReactionButton extends StatelessWidget {
-  final String emoji;
-  final VoidCallback onTap;
-
-  const _ReactionButton({
-    Key? key,
-    required this.emoji,
-    required this.onTap,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          shape: BoxShape.circle,
-        ),
-        child: Center(
-          child: Text(
-            emoji,
-            style: const TextStyle(fontSize: 28),
-          ),
         ),
       ),
     );

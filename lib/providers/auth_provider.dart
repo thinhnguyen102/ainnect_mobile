@@ -156,6 +156,18 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshUser() async {
+    try {
+      final user = await _authService.getCurrentUser();
+      if (user != null) {
+        _user = user;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error refreshing user: $e');
+    }
+  }
+
   void _setState(AuthState newState) {
     _state = newState;
     _errorMessage = null;

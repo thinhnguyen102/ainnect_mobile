@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/comment.dart';
 import '../models/post.dart';
 import '../services/post_service.dart';
-import '../utils/url_helper.dart';
+import '../providers/auth_provider.dart';
+import '../widgets/comment_item.dart';
 
 class CommentScreen extends StatefulWidget {
   final Post post;
@@ -51,19 +53,26 @@ class _CommentScreenState extends State<CommentScreen> {
     });
 
     try {
-      final response = await _postService.getPostComments(widget.post.id, page: _currentPage);
-      setState(() {
-        _comments.addAll(response.comments);
-        _currentPage++;
-        _totalPages = response.totalPages;
-        _hasMore = _currentPage < _totalPages;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      final response = await _postService.getPostComments(
+        widget.post.id, 
+        page: _currentPage,
+        size: 4, // Use size 4 as per API specification
+      );
+      
       if (mounted) {
+        setState(() {
+          _comments.addAll(response.comments);
+          _currentPage++;
+          _totalPages = response.totalPages;
+          _hasMore = response.hasNext;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Không thể tải bình luận: ${e.toString()}'),
@@ -86,10 +95,25 @@ class _CommentScreenState extends State<CommentScreen> {
     final content = _commentController.text.trim();
     if (content.isEmpty) return;
 
+    final authProvider = context.read<AuthProvider>();
+    final token = await authProvider.getAccessToken();
+    
+    if (token == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vui lòng đăng nhập để bình luận'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       final success = await _postService.addComment(
-        'YOUR_AUTH_TOKEN', // TODO: Get actual auth token
+        token,
         widget.post.id,
         content,
       );
@@ -97,6 +121,15 @@ class _CommentScreenState extends State<CommentScreen> {
       if (success) {
         _commentController.clear();
         await _loadComments(refresh: true);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã đăng bình luận'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -117,7 +150,9 @@ class _CommentScreenState extends State<CommentScreen> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -133,99 +168,57 @@ class _CommentScreenState extends State<CommentScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: () => _loadComments(refresh: true),
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(8),
-                itemCount: _comments.length + (_isLoading || !_hasMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index < _comments.length) {
-                    final comment = _comments[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: const Color(0xFF6366F1),
-                              backgroundImage: comment.authorAvatarUrl != null
-                                  ? NetworkImage(UrlHelper.fixImageUrl(comment.authorAvatarUrl!))
-                                  : null,
-                              child: comment.authorAvatarUrl == null
-                                  ? Text(
-                                      comment.authorDisplayName[0].toUpperCase(),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    )
-                                  : null,
+              child: _comments.isEmpty && !_isLoading
+                  ? const Center(
+                      child: Text(
+                        'Chưa có bình luận nào.\nHãy là người đầu tiên bình luận!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _comments.length + (_isLoading || !_hasMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index < _comments.length) {
+                          final comment = _comments[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: CommentItem(
+                              comment: comment,
+                              onDeleted: () {
+                                setState(() {
+                                  _comments.removeAt(index);
+                                });
+                              },
+                              onReplied: () {
+                                // Optionally refresh to update reply count
+                                _loadComments(refresh: true);
+                              },
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    comment.authorDisplayName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(comment.content),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        comment.createdAt,
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      if (comment.reactionCount > 0)
-                                        Text(
-                                          '${comment.reactionCount} thích',
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
+                          );
+                        }
+                        if (_isLoading) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        if (!_hasMore && _comments.isNotEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Center(
+                              child: Text(
+                                'Đã tải hết bình luận',
+                                style: TextStyle(color: Colors.grey),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-                  if (_isLoading) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-                  if (!_hasMore) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(
-                        child: Text(
-                          'Không còn bình luận nào để tải',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
             ),
           ),
           Container(

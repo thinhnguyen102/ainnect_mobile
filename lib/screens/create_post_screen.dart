@@ -22,6 +22,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final _postService = PostService();
   final _imagePicker = ImagePicker();
   List<String> _selectedMedia = [];
+  List<String> _mediaTypes = []; // Track media type (image/video)
   String _visibility = 'public_';
   bool _isLoading = false;
 
@@ -36,7 +37,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final images = await _imagePicker.pickMultiImage();
       if (images.isNotEmpty) {
         setState(() {
-          _selectedMedia.addAll(images.map((image) => image.path));
+          for (var image in images) {
+            _selectedMedia.add(image.path);
+            _mediaTypes.add('image');
+          }
         });
       }
     } catch (e) {
@@ -51,11 +55,32 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
+  Future<void> _pickVideo() async {
+    try {
+      final video = await _imagePicker.pickVideo(source: ImageSource.gallery);
+      if (video != null) {
+        setState(() {
+          _selectedMedia.add(video.path);
+          _mediaTypes.add('video');
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể chọn video: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _createPost() async {
     if (_contentController.text.trim().isEmpty && _selectedMedia.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Vui lòng nhập nội dung hoặc chọn ảnh'),
+          content: Text('Vui lòng nhập nội dung hoặc chọn ảnh/video'),
           backgroundColor: Colors.red,
         ),
       );
@@ -74,6 +99,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         throw Exception('Không tìm thấy token đăng nhập');
       }
 
+      print('Creating post with ${_selectedMedia.length} media files');
+      print('Content: ${_contentController.text.trim()}');
+      print('Visibility: $_visibility');
+
       final request = CreatePostRequest(
         content: _contentController.text.trim(),
         visibility: _visibility,
@@ -85,25 +114,29 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (post != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đăng bài viết thành công'),
+            content: Text('Đăng bài viết thành công!'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
         Navigator.pop(context, true);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Không thể đăng bài viết'),
+            content: Text('Không thể đăng bài viết. Vui lòng thử lại.'),
             backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
+      print('Error creating post: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi khi đăng bài: $e'),
+            content: Text('Lỗi khi đăng bài: ${e.toString().replaceAll('Exception: ', '')}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -249,14 +282,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           const SizedBox(width: 8),
                       itemBuilder: (context, index) {
                         final file = File(_selectedMedia[index]);
+                        final mediaType = _mediaTypes[index];
                         return Stack(
                           children: [
                             MediaPreview(
                               mediaUrl: file.path,
-                              mediaType: 'image',
+                              mediaType: mediaType,
                               onRemove: () {
                                 setState(() {
                                   _selectedMedia.removeAt(index);
+                                  _mediaTypes.removeAt(index);
                                 });
                               },
                             ),
@@ -275,16 +310,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   children: [
                     Expanded(
                       child: TextButton.icon(
-                        onPressed: _pickImage,
+                        onPressed: _isLoading ? null : _pickImage,
                         icon: const Icon(Icons.image),
                         label: const Text('Thêm ảnh'),
                       ),
                     ),
                     Expanded(
                       child: TextButton.icon(
-                        onPressed: () {
-                          // TODO: Implement video upload
-                        },
+                        onPressed: _isLoading ? null : _pickVideo,
                         icon: const Icon(Icons.videocam),
                         label: const Text('Thêm video'),
                       ),

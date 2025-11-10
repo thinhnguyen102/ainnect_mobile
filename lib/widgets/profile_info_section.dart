@@ -128,7 +128,7 @@ class ProfileInfoSection extends StatelessWidget {
                   children: [
                     Text(work.companyName),
                     Text(
-                      work.isCurrent ? 'Hiện tại' : work.startDate,
+                      work.isCurrent ? 'Hiện tại' : (work.startDate ?? 'Chưa rõ'),
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                   ],
@@ -160,7 +160,7 @@ class ProfileInfoSection extends StatelessWidget {
                   children: [
                     Text('${edu.degree} - ${edu.fieldOfStudy}'),
                     Text(
-                      edu.isCurrent ? 'Hiện tại' : edu.startDate,
+                      edu.isCurrent ? 'Hiện tại' : (edu.startDate ?? 'Chưa rõ'),
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                   ],

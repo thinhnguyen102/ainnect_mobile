@@ -137,7 +137,7 @@ class Education {
   final String schoolName;
   final String degree;
   final String fieldOfStudy;
-  final String startDate;
+  final String? startDate;
   final String? endDate;
   final bool isCurrent;
   final String? description;
@@ -150,7 +150,7 @@ class Education {
     required this.schoolName,
     required this.degree,
     required this.fieldOfStudy,
-    required this.startDate,
+    this.startDate,
     this.endDate,
     required this.isCurrent,
     this.description,
@@ -168,8 +168,8 @@ class WorkExperience {
   final int id;
   final String companyName;
   final String position;
-  final String location;
-  final String startDate;
+  final String? location;
+  final String? startDate;
   final String? endDate;
   final bool isCurrent;
   final String? description;
@@ -181,8 +181,8 @@ class WorkExperience {
     required this.id,
     required this.companyName,
     required this.position,
-    required this.location,
-    required this.startDate,
+    this.location,
+    this.startDate,
     this.endDate,
     required this.isCurrent,
     this.description,

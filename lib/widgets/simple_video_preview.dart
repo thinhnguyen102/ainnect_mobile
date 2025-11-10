@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
@@ -7,11 +8,13 @@ import '../utils/url_helper.dart';
 class SimpleVideoPreview extends StatelessWidget {
   final String videoUrl;
   final String? thumbnailUrl;
+  final bool isLocalFile;
 
   const SimpleVideoPreview({
     Key? key,
     required this.videoUrl,
     this.thumbnailUrl,
+    this.isLocalFile = false,
   }) : super(key: key);
 
   @override
@@ -26,6 +29,7 @@ class SimpleVideoPreview extends StatelessWidget {
           builder: (context) => VideoPlayerModal(
             videoUrl: videoUrl,
             thumbnailUrl: thumbnailUrl,
+            isLocalFile: isLocalFile,
           ),
         );
       },
@@ -156,11 +160,13 @@ class SimpleVideoPreview extends StatelessWidget {
 class VideoPlayerModal extends StatefulWidget {
   final String videoUrl;
   final String? thumbnailUrl;
+  final bool isLocalFile;
 
   const VideoPlayerModal({
     Key? key,
     required this.videoUrl,
     this.thumbnailUrl,
+    this.isLocalFile = false,
   }) : super(key: key);
 
   @override
@@ -182,10 +188,15 @@ class _VideoPlayerModalState extends State<VideoPlayerModal> {
 
   Future<void> _initializePlayer() async {
     try {
-      final fixedUrl = UrlHelper.fixImageUrl(widget.videoUrl);
-      
-      // Create video controller
-      _videoController = VideoPlayerController.network(fixedUrl);
+      // Create video controller - use local file or network
+      if (widget.isLocalFile) {
+        _videoController = VideoPlayerController.file(
+          File(widget.videoUrl),
+        );
+      } else {
+        final fixedUrl = UrlHelper.fixImageUrl(widget.videoUrl);
+        _videoController = VideoPlayerController.network(fixedUrl);
+      }
       
       // Initialize with timeout
       await _videoController!.initialize().timeout(
@@ -205,8 +216,8 @@ class _VideoPlayerModalState extends State<VideoPlayerModal> {
         showControls: true,
         aspectRatio: _videoController!.value.aspectRatio,
         materialProgressColors: ChewieProgressColors(
-          playedColor: const Color(0xFF6366F1),
-          handleColor: const Color(0xFF6366F1),
+          playedColor: const Color(0xFF1E88E5),
+          handleColor: const Color(0xFF1E88E5),
           backgroundColor: Colors.grey,
           bufferedColor: Colors.grey.shade300,
         ),
@@ -379,7 +390,7 @@ class _VideoPlayerModalState extends State<VideoPlayerModal> {
               ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
+                  backgroundColor: const Color(0xFF1E88E5),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,

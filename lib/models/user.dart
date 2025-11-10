@@ -9,6 +9,11 @@ class User {
   final String email;
   final String displayName;
   final String? avatarUrl;
+  final String? coverUrl;
+  final String? phone;
+  final String? bio;
+  final String? gender;
+  final String? birthday;
   final bool isActive;
 
   const User({
@@ -17,6 +22,11 @@ class User {
     required this.email,
     required this.displayName,
     this.avatarUrl,
+    this.coverUrl,
+    this.phone,
+    this.bio,
+    this.gender,
+    this.birthday,
     required this.isActive,
   });
 

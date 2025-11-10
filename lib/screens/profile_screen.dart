@@ -8,14 +8,19 @@ import '../providers/friendship_provider.dart';
 import '../providers/messaging_provider.dart';
 import '../services/profile_service.dart';
 import '../services/search_service.dart';
+import '../services/post_service.dart';
 import '../widgets/post_card.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_info_section.dart';
 import '../widgets/profile_action_button.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/comment_bottom_sheet.dart';
 import 'friends_list_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'chat_screen.dart';
+import 'education_list_screen.dart';
+import 'work_experience_list_screen.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final int userId;
@@ -29,6 +34,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final ProfileService _profileService = ProfileService();
   final SearchService _searchService = SearchService();
+  final PostService _postService = PostService();
   final ScrollController _scrollController = ScrollController();
 
   Profile? _profile;
@@ -37,6 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _currentPage = 0;
   bool _isCurrentUser = false;
   int _friendsCount = 0;
+  String? _authToken;
 
   @override
   void initState() {
@@ -201,8 +208,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _handleEditProfile() {
-    // TODO: Navigate to edit profile screen
+  Future<void> _handleEditProfile() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const EditProfileScreen(),
+      ),
+    );
+    
+    if (result == true && mounted) {
+      _loadProfile(); // Reload profile to show updated data
+    }
   }
 
   Future<void> _handleAddFriend() async {
@@ -272,20 +288,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // TODO: Implement edit avatar
   }
 
-  void _handleEditEducation() {
-    // TODO: Navigate to edit education screen
+  Future<void> _handleEditEducation() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const EducationListScreen(),
+      ),
+    );
+    
+    if (result == true && mounted) {
+      _loadProfile(); // Reload profile to show updated data
+    }
   }
 
-  void _handleEditWork() {
-    // TODO: Navigate to edit work experience screen
+  Future<void> _handleEditWork() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const WorkExperienceListScreen(),
+      ),
+    );
+    
+    if (result == true && mounted) {
+      _loadProfile(); // Reload profile to show updated data
+    }
   }
 
   void _handleEditLocation() {
     // TODO: Navigate to edit location screen
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tính năng đang phát triển'),
+        backgroundColor: Colors.orange,
+      ),
+    );
   }
 
   void _handleEditInterest() {
     // TODO: Navigate to edit interests screen
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tính năng đang phát triển'),
+        backgroundColor: Colors.orange,
+      ),
+    );
   }
 
   Future<void> _handleLogout() async {
@@ -309,6 +355,149 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _handleLike(Post post, [String? reactionType]) async {
+    final authProvider = context.read<AuthProvider>();
+    final token = await authProvider.getAccessToken();
+    
+    if (token == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vui lòng đăng nhập để thực hiện thao tác này'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    final isCurrentlyLiked = post.reactions.currentUserReacted;
+    final currentReactionType = post.reactions.currentUserReactionType;
+
+    bool success;
+    if (isCurrentlyLiked && (reactionType == null || reactionType.toUpperCase() == (currentReactionType?.toUpperCase() ?? 'LIKE'))) {
+      success = await _postService.removeReaction(token, post.id);
+      if (success) {
+        setState(() {
+          post.reactions.currentUserReacted = false;
+          post.reactions.currentUserReactionType = null;
+          post.reactions.totalCount = (post.reactions.totalCount - 1).clamp(0, 999999);
+        });
+      }
+    } else {
+      final type = (reactionType ?? 'LIKE').toUpperCase();
+      success = await _postService.reactToPost(token, post.id, type);
+      if (success) {
+        setState(() {
+          post.reactions.currentUserReacted = true;
+          post.reactions.currentUserReactionType = type;
+          if (!isCurrentlyLiked) {
+            post.reactions.totalCount++;
+          }
+        });
+      }
+    }
+
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể thực hiện thao tác. Vui lòng thử lại sau.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleComment(Post post) async {
+    final authProvider = context.read<AuthProvider>();
+    final token = await authProvider.getAccessToken();
+    
+    if (token == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vui lòng đăng nhập để thực hiện thao tác này'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => CommentBottomSheet(post: post),
+      ),
+    );
+  }
+
+  Future<void> _handleShare(Post post) async {
+    final authProvider = context.read<AuthProvider>();
+    final token = await authProvider.getAccessToken();
+    
+    if (token == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vui lòng đăng nhập để thực hiện thao tác này'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    final success = await _postService.sharePost(token, post.id);
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chia sẻ bài viết thành công!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      // Reload profile to get updated share count
+      await _loadProfile();
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể chia sẻ bài viết. Vui lòng thử lại sau.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Post _convertToPost(ProfilePost post) {
+    return Post(
+      id: post.id,
+      authorId: _profile!.userId,
+      authorUsername: _profile!.username,
+      authorDisplayName: _profile!.displayName,
+      authorAvatarUrl: _profile!.avatarUrl,
+      content: post.content,
+      visibility: 'public_',
+      commentCount: post.commentsCount,
+      reactionCount: post.likesCount,
+      shareCount: post.sharesCount,
+      reactions: PostReactions(
+        totalCount: post.likesCount,
+        reactionCounts: [],
+        recentReactions: [],
+        currentUserReacted: post.liked,
+        currentUserReactionType: post.liked ? 'like' : null,
+      ),
+      media: post.media,
+      createdAt: post.createdAt,
+      updatedAt: post.createdAt,
+    );
   }
 
   @override
@@ -427,7 +616,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       gradient: const LinearGradient(
                                         colors: [
                                           Color(0xFF6366F1),
-                                          Color(0xFF8B5CF6),
+                                          Color(0xFF1E88E5),
                                         ],
                                       ),
                                       borderRadius: BorderRadius.circular(12),
@@ -532,9 +721,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           updatedAt: post.createdAt,
                         ),
                         isLiked: post.liked,
-                        onLike: ([type]) {}, // TODO: Implement like
-                        onComment: () {}, // TODO: Implement comment
-                        onShare: () {}, // TODO: Implement share
+                        onLike: ([type]) => _handleLike(_convertToPost(post), type),
+                        onComment: () => _handleComment(_convertToPost(post)),
+                        onShare: () => _handleShare(_convertToPost(post)),
                       ),
                     );
                   }

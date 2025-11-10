@@ -37,7 +37,7 @@ class _UserAvatarState extends State<UserAvatar> {
         builder: (context, snapshot) {
           return CircleAvatar(
             radius: widget.radius,
-            backgroundColor: const Color(0xFF6366F1),
+            backgroundColor: const Color(0xFF1E88E5),
             backgroundImage: widget.avatarUrl != null && snapshot.hasData
                 ? NetworkImage(
                     UrlHelper.fixImageUrl(widget.avatarUrl!),
