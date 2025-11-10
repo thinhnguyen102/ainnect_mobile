@@ -109,25 +109,26 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         mediaFiles: _selectedMedia,
       );
 
-      final post = await _postService.createPost(token, request);
+      // Gửi request mà không chờ response (fire-and-forget)
+      // Backend sẽ xử lý đa luồng
+      _postService.createPost(token, request).then((post) {
+        print('Post created successfully: ${post?.id}');
+      }).catchError((e) {
+        print('Error creating post in background: $e');
+      });
 
-      if (post != null && mounted) {
+      // Thông báo người dùng ngay lập tức
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đăng bài viết thành công!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-        Navigator.pop(context, true);
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Không thể đăng bài viết. Vui lòng thử lại.'),
-            backgroundColor: Colors.red,
+            content: Text('Bài viết của bạn đang được xử lý và sẽ xuất hiện sớm!'),
+            backgroundColor: Color(0xFF6366F1),
             duration: Duration(seconds: 3),
           ),
         );
+        
+        // Quay về home screen ngay lập tức
+        Navigator.pop(context, true);
       }
     } catch (e) {
       print('Error creating post: $e');
@@ -139,9 +140,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             duration: const Duration(seconds: 3),
           ),
         );
-      }
-    } finally {
-      if (mounted) {
         setState(() {
           _isLoading = false;
         });
