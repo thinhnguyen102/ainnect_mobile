@@ -67,9 +67,25 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final response = _isAuthenticated
-          ? await _postService.getUserFeed(_authToken!, page: _currentPage)
-          : await _postService.getPublicFeed(page: _currentPage);
+      print('🔄 Loading posts: authenticated=$_isAuthenticated, page=$_currentPage, refresh=$refresh');
+      
+      // Use public feed with authentication for personalized content
+      final response = await _postService.getPublicFeed(
+        page: _currentPage,
+        token: _authToken, // Send token if available
+      );
+
+      print('📥 Received ${response.content.length} posts');
+      print('📊 Page info: current=${response.page.number}, total=${response.page.totalPages}, totalElements=${response.page.totalElements}');
+      
+      if (response.content.isEmpty) {
+        print('⚠️ No posts in response!');
+      } else {
+        print('✅ Posts received:');
+        for (var post in response.content) {
+          print('  - Post ${post.id}: "${post.content.substring(0, post.content.length > 30 ? 30 : post.content.length)}..."');
+        }
+      }
 
       if (mounted) {
         setState(() {
@@ -83,8 +99,11 @@ class _HomeScreenState extends State<HomeScreen> {
           _hasMore = _currentPage < _totalPages;
           _isLoading = false;
         });
+        
+        print('📱 UI updated: total posts in list = ${_posts.length}');
       }
     } catch (e) {
+      print('❌ Error loading posts: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -264,13 +283,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
+                      onTap: () async {
+                        final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => CreatePostScreen(),
                           ),
                         );
+                        
+                        // Refresh feed if post was created
+                        if (result == true) {
+                          print('🔄 Refreshing feed after creating post...');
+                          _loadPosts(refresh: true);
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -300,39 +325,48 @@ class _HomeScreenState extends State<HomeScreen> {
                     icon: Icons.photo_library_outlined,
                     label: 'Ảnh',
                     color: const Color(0xFF10B981),
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => CreatePostScreen(),
                         ),
                       );
+                      if (result == true) {
+                        _loadPosts(refresh: true);
+                      }
                     },
                   ),
                   _buildActionButton(
                     icon: Icons.videocam_outlined,
                     label: 'Video',
                     color: const Color(0xFFEF4444),
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => CreatePostScreen(),
                         ),
                       );
+                      if (result == true) {
+                        _loadPosts(refresh: true);
+                      }
                     },
                   ),
                   _buildActionButton(
                     icon: Icons.emoji_emotions_outlined,
                     label: 'Cảm xúc',
                     color: const Color(0xFFF59E0B),
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => CreatePostScreen(),
                         ),
                       );
+                      if (result == true) {
+                        _loadPosts(refresh: true);
+                      }
                     },
                   ),
                 ],
@@ -461,13 +495,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     child: const Icon(Icons.add, color: Color(0xFF6366F1), size: 20),
                   ),
-                  onPressed: () {
-                    Navigator.push(
+                  onPressed: () async {
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => CreatePostScreen(),
                       ),
                     );
+                    if (result == true) {
+                      _loadPosts(refresh: true);
+                    }
                   },
                 ),
                 IconButton(

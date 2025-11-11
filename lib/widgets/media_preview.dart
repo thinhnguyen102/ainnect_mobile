@@ -26,7 +26,7 @@ class MediaPreview extends StatefulWidget {
 }
 
 class _MediaPreviewState extends State<MediaPreview> {
-  late Future<Map<String, String>> _headersFuture;
+  Future<Map<String, String>>? _headersFuture;
   bool _isLocalFile = false;
 
   @override
@@ -41,6 +41,45 @@ class _MediaPreviewState extends State<MediaPreview> {
 
   @override
   Widget build(BuildContext context) {
+    // For local files, don't use FutureBuilder
+    if (_isLocalFile) {
+      return Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: _buildMediaWidget(null),
+            ),
+          ),
+          if (widget.onRemove != null)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: GestureDetector(
+                onTap: widget.onRemove,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+    
+    // For network files, use FutureBuilder
     return FutureBuilder<Map<String, String>>(
       future: _headersFuture,
       builder: (context, snapshot) {
@@ -82,7 +121,7 @@ class _MediaPreviewState extends State<MediaPreview> {
     );
   }
 
-  Widget _buildMediaWidget(AsyncSnapshot<Map<String, String>> snapshot) {
+  Widget _buildMediaWidget(AsyncSnapshot<Map<String, String>>? snapshot) {
     if (widget.mediaType.toLowerCase() == 'video') {
       // Video preview - use SimpleVideoPreview for both local and network videos
       return SimpleVideoPreview(
@@ -128,7 +167,7 @@ class _MediaPreviewState extends State<MediaPreview> {
         );
       } else {
         // Network image
-        if (!snapshot.hasData) {
+        if (snapshot == null || !snapshot.hasData) {
           return const Center(
             child: CircularProgressIndicator(
               color: Color(0xFF1E88E5),

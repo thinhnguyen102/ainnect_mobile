@@ -491,6 +491,50 @@ class WebSocketService {
     Logger.debug('Unsubscribed from conversation: $conversationId');
   }
 
+  void subscribeToUserPosts(int userId) {
+    print('📝 ===== Subscribing to User Posts $userId =====');
+    Logger.debug('📝 ===== Subscribing to User Posts $userId =====');
+    
+    if (_stompClient == null || !_isConnected) {
+      print('❌ Cannot subscribe to posts: WebSocket not connected');
+      Logger.error('❌ Cannot subscribe to posts: WebSocket not connected');
+      return;
+    }
+    
+    print('✅ WebSocket is connected, subscribing to post updates...');
+    
+    // Subscribe to post updates for the user
+    Logger.debug('📮 Subscribing to /topic/users/$userId/posts');
+    print('📮 Subscribing to /topic/users/$userId/posts');
+    _stompClient!.subscribe(
+      destination: '/topic/users/$userId/posts',
+      callback: (StompFrame frame) {
+        print('📥 🎉 RECEIVED post update for user $userId');
+        print('  Frame body: ${frame.body}');
+        if (frame.body != null) {
+          try {
+            Logger.debug('📥 Received post notification: ${frame.body}');
+            final data = jsonDecode(frame.body!);
+            print('📥 Post notification type: ${data['type']}');
+            Logger.debug('📥 Post notification decoded: $data');
+            
+            // Send to notification stream
+            _notificationStreamController.add(data);
+            Logger.debug('✅ Post notification sent to stream: type=${data['type']}');
+          } catch (e, stackTrace) {
+            print('❌ Error parsing post notification: $e');
+            Logger.error('❌ Error parsing post notification: $e');
+            Logger.error('Stack trace: $stackTrace');
+            Logger.error('Raw body: ${frame.body}');
+          }
+        }
+      },
+    );
+    
+    print('✅ Subscribed to /topic/users/$userId/posts');
+    Logger.debug('✅ Subscribed to user posts notifications');
+  }
+
   void sendMessage(int conversationId, SendMessageRequest message) {
     print('🚀 ===== Attempting to send message =====');
     print('ConversationId: $conversationId');

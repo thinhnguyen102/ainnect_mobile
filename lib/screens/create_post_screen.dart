@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/create_post_request.dart';
 import '../providers/auth_provider.dart';
 import '../services/post_service.dart';
+import '../services/websocket_service.dart';
 import '../widgets/user_avatar.dart';
 import '../widgets/media_preview.dart';
 import '../widgets/bottom_nav_bar.dart';
@@ -21,14 +23,75 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final _contentController = TextEditingController();
   final _postService = PostService();
   final _imagePicker = ImagePicker();
+  final _websocketService = WebSocketService();
   List<String> _selectedMedia = [];
   List<String> _mediaTypes = []; // Track media type (image/video)
   String _visibility = 'public_';
   bool _isLoading = false;
+  StreamSubscription? _wsSubscription;
+  int? _currentUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeWebSocket();
+  }
+
+  Future<void> _initializeWebSocket() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    _currentUserId = authProvider.user?.id;
+    
+    if (_currentUserId != null) {
+      // Ensure WebSocket is connected
+      if (!_websocketService.isConnected) {
+        await _websocketService.connect();
+      }
+      
+      // Subscribe to post updates for current user
+      _websocketService.subscribeToUserPosts(_currentUserId!);
+      
+      // Listen to notification stream
+      _wsSubscription = _websocketService.notificationStream.listen((data) {
+        if (mounted && data['type'] != null) {
+          _handlePostNotification(data);
+        }
+      });
+    }
+  }
+
+  void _handlePostNotification(Map<String, dynamic> notification) {
+    final type = notification['type'] as String;
+    
+    if (type == 'POST_UPDATED') {
+      // Media processing completed successfully
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Bài viết của bạn đã được đăng thành công!'),
+            backgroundColor: Color(0xFF10B981),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } else if (type == 'POST_UPDATE_FAILED') {
+      // Media processing failed
+      final error = notification['error'] as String?;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Lỗi xử lý bài viết: ${error ?? "Vui lòng thử lại"}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
     _contentController.dispose();
+    _wsSubscription?.cancel();
     super.dispose();
   }
 
@@ -109,26 +172,47 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         mediaFiles: _selectedMedia,
       );
 
-      // Gửi request mà không chờ response (fire-and-forget)
-      // Backend sẽ xử lý đa luồng
-      _postService.createPost(token, request).then((post) {
-        print('Post created successfully: ${post?.id}');
-      }).catchError((e) {
-        print('Error creating post in background: $e');
-      });
+      // Gửi request và nhận response ngay lập tức (HTTP 201)
+      // Backend sẽ xử lý media ở background và gửi thông báo qua WebSocket
+      final post = await _postService.createPost(token, request);
 
-      // Thông báo người dùng ngay lập tức
-      if (mounted) {
+      if (post != null && mounted) {
+        print('✅ Post created successfully! Post ID: ${post.id}');
+        print('   Content: ${post.content}');
+        print('   Media count: ${post.media.length}');
+        print('   Visibility: ${post.visibility}');
+        
+        // Bài viết đã được tạo thành công (có thể chưa có media)
+        final hasMedia = _selectedMedia.isNotEmpty;
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bài viết của bạn đang được xử lý và sẽ xuất hiện sớm!'),
-            backgroundColor: Color(0xFF6366F1),
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: Text(
+              hasMedia 
+                ? '📤 Bài viết đang được xử lý. Media sẽ xuất hiện sau ít phút!'
+                : '✅ Đăng bài viết thành công!',
+            ),
+            backgroundColor: hasMedia ? const Color(0xFF6366F1) : const Color(0xFF10B981),
+            duration: Duration(seconds: hasMedia ? 4 : 2),
           ),
         );
         
         // Quay về home screen ngay lập tức
         Navigator.pop(context, true);
+      } else if (mounted) {
+        print('❌ Post creation returned null!');
+
+        // Lỗi khi tạo bài viết
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể đăng bài viết. Vui lòng thử lại.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        setState(() {
+          _isLoading = false;
+        });
       }
     } catch (e) {
       print('Error creating post: $e');

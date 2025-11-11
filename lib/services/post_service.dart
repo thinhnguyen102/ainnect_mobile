@@ -63,13 +63,18 @@ Future<PageResponse<UserReaction>> getPostReactions(int postId, {int page = 0, i
 }
 
 class PostService {
-  Future<PageResponse<Post>> getPublicFeed({int page = 0, int size = 10}) async {
+  Future<PageResponse<Post>> getPublicFeed({int page = 0, int size = 10, String? token}) async {
     final endpoint = '${Constants.baseUrl}/posts/feed?page=$page&size=$size';
     final headers = {
       'Content-Type': 'application/json',
     };
     
-    Logger.debug('Fetching public feed: page=$page, size=$size');
+    // Add token if available for personalized feed
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    
+    Logger.debug('Fetching public feed: page=$page, size=$size, withAuth=${token != null}');
     Logger.request('GET', endpoint, headers: headers);
     
     try {
@@ -90,11 +95,20 @@ class PostService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return PageResponse<Post>.fromJson(
+        print('📦 Public feed response data keys: ${data.keys.toList()}');
+        print('📦 Content length: ${data['content']?.length ?? 0}');
+        print('📦 Total elements: ${data['page']?['totalElements'] ?? 0}');
+        
+        final pageResponse = PageResponse<Post>.fromJson(
           data,
           (json) => Post.fromJson(json as Map<String, dynamic>),
         );
+        
+        print('✅ Parsed ${pageResponse.content.length} posts successfully');
+        return pageResponse;
       } else {
+        print('❌ Public feed failed with status ${response.statusCode}');
+        print('❌ Response body: ${response.body}');
         Logger.error(
           'Failed to fetch public feed',
           error: 'Status code: ${response.statusCode}, Body: ${response.body}',
