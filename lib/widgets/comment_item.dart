@@ -305,9 +305,7 @@ class _CommentItemState extends State<CommentItem> {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final isMyComment = authProvider.user?.id == widget.comment.authorId;
-    final avatarUrl = widget.comment.authorAvatarUrl != null
-        ? UrlHelper.fixImageUrl(widget.comment.authorAvatarUrl!)
-        : null;
+    final avatarUrl = UrlHelper.fixImageUrl(widget.comment.authorAvatarUrl);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

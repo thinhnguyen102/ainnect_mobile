@@ -43,8 +43,12 @@ class VideoThumbnail extends StatelessWidget {
                           ),
                         );
                       }
+                      final resolvedUrl = UrlHelper.fixImageUrl(thumbnailUrl!);
+                      if (resolvedUrl == null) {
+                        return _buildDefaultThumbnail();
+                      }
                       return Image.network(
-                        UrlHelper.fixImageUrl(thumbnailUrl!),
+                        resolvedUrl,
                         headers: snapshot.data,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
@@ -172,6 +176,9 @@ class _VideoPlayerModalState extends State<VideoPlayerModal> {
   Future<void> _initializeVideo() async {
     try {
       final fixedUrl = UrlHelper.fixImageUrl(widget.videoUrl);
+      if (fixedUrl == null) {
+        throw Exception('Không tìm thấy URL video hợp lệ');
+      }
       
       // Create controller
       try {

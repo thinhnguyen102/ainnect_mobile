@@ -6,7 +6,9 @@ import '../models/profile.dart';
 import '../models/work_experience_request.dart';
 import '../providers/auth_provider.dart';
 import '../services/profile_service.dart';
+import '../services/media_upload_service.dart';
 import '../widgets/suggestion_fields.dart';
+import '../utils/url_helper.dart';
 
 class ManageWorkExperienceScreen extends StatefulWidget {
   final WorkExperience? workExperience;
@@ -23,6 +25,7 @@ class ManageWorkExperienceScreen extends StatefulWidget {
 class _ManageWorkExperienceScreenState extends State<ManageWorkExperienceScreen> {
   final _formKey = GlobalKey<FormState>();
   final ProfileService _profileService = ProfileService();
+  final MediaUploadService _mediaUploadService = MediaUploadService();
   
   String? _companyName;
   String? _position;
@@ -34,6 +37,20 @@ class _ManageWorkExperienceScreenState extends State<ManageWorkExperienceScreen>
   File? _imageFile;
   String? _imageUrl;
   bool _isLoading = false;
+
+  Widget _buildRemoteImagePreview() {
+    final fixedUrl = UrlHelper.fixImageUrl(_imageUrl);
+    if (fixedUrl == null) {
+      return Container(
+        height: 200,
+        color: Colors.grey[200],
+        child: const Center(
+          child: Icon(Icons.image_not_supported, color: Colors.grey),
+        ),
+      );
+    }
+    return Image.network(fixedUrl, height: 200, fit: BoxFit.cover);
+  }
 
   @override
   void initState() {
@@ -87,7 +104,8 @@ class _ManageWorkExperienceScreenState extends State<ManageWorkExperienceScreen>
       return;
     }
 
-    if (_companyName == null || _companyName!.isEmpty) {
+    final companyName = _companyName?.trim();
+    if (companyName == null || companyName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Vui lòng nhập tên công ty'),
@@ -96,6 +114,18 @@ class _ManageWorkExperienceScreenState extends State<ManageWorkExperienceScreen>
       );
       return;
     }
+    final position = _position?.trim();
+    if (position == null || position.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập vị trí công việc'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    _companyName = companyName;
+    _position = position;
 
     setState(() => _isLoading = true);
 
@@ -107,21 +137,25 @@ class _ManageWorkExperienceScreenState extends State<ManageWorkExperienceScreen>
         throw Exception('Chưa đăng nhập');
       }
 
-      // Build description
-      final descriptionParts = <String>[];
-      if (_companyName != null) descriptionParts.add('Công ty: $_companyName');
-      if (_position != null) descriptionParts.add('Vị trí: $_position');
-      if (_location != null) descriptionParts.add('Địa điểm: $_location');
-      if (_description != null) descriptionParts.add(_description!);
-      
-      final fullDescription = descriptionParts.join('\n');
+      if (_imageFile != null && !_mediaUploadService.isAvailable) {
+        throw Exception(_mediaUploadService.errorMessage ??
+            'Upload media chưa được cấu hình');
+      }
+
+      String? uploadUrl = _imageUrl;
+      if (_imageFile != null) {
+        uploadUrl = await _mediaUploadService.uploadFile(_imageFile!);
+      }
 
       final request = WorkExperienceRequest(
+        companyName: companyName,
+        position: position,
+        location: _location?.trim().isEmpty == true ? null : _location?.trim(),
         startDate: _startDate,
         endDate: _isCurrent ? null : _endDate,
         isCurrent: _isCurrent,
-        description: fullDescription,
-        imagePath: _imageFile?.path,
+        description: _description?.trim().isEmpty == true ? null : _description?.trim(),
+        imageUrl: uploadUrl,
       );
 
       Map<String, dynamic> result;
@@ -294,6 +328,11 @@ class _ManageWorkExperienceScreenState extends State<ManageWorkExperienceScreen>
                               _imageUrl = imageUrl;
                             });
                           },
+                          onChanged: (value) {
+                            setState(() {
+                              _companyName = value;
+                            });
+                          },
                         ),
 
                     const SizedBox(height: 16),
@@ -313,6 +352,12 @@ class _ManageWorkExperienceScreenState extends State<ManageWorkExperienceScreen>
                           borderSide: const BorderSide(color: Color(0xFF1E88E5), width: 2),
                         ),
                       ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Vui lòng nhập vị trí';
+                        }
+                        return null;
+                      },
                       onChanged: (value) => _position = value,
                     ),
 
@@ -432,7 +477,7 @@ class _ManageWorkExperienceScreenState extends State<ManageWorkExperienceScreen>
                         borderRadius: BorderRadius.circular(12),
                         child: _imageFile != null
                             ? Image.file(_imageFile!, height: 200, fit: BoxFit.cover)
-                            : Image.network(_imageUrl!, height: 200, fit: BoxFit.cover),
+                            : _buildRemoteImagePreview(),
                       ),
                     ],
 

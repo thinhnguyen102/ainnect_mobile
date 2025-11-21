@@ -4,6 +4,17 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../utils/url_helper.dart';
 
+
+Widget _buildDefaultIcon() {
+  return const Center(
+    child: Icon(
+      Icons.video_library,
+      color: Colors.white54,
+      size: 80,
+    ),
+  );
+}
+
 /// Simple video placeholder that shows a preview
 class SimpleVideoPreview extends StatelessWidget {
   final String videoUrl;
@@ -33,124 +44,108 @@ class SimpleVideoPreview extends StatelessWidget {
           ),
         );
       },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Background
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.grey[900]!,
-                  Colors.grey[800]!,
-                ],
+      child: SizedBox(
+        width: MediaQuery.of(context).size.width,
+        height: 200, // Set a finite height for preview
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Background
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.grey[900]!,
+                    Colors.grey[800]!,
+                  ],
+                ),
               ),
-            ),
-            child: thumbnailUrl != null
-                ? FutureBuilder<Map<String, String>>(
-                    future: UrlHelper.getHeaders(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                          ),
-                        );
-                      }
-                      return Image.network(
-                        UrlHelper.fixImageUrl(thumbnailUrl!),
-                        headers: snapshot.data,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
+              child: thumbnailUrl != null
+                  ? FutureBuilder<Map<String, String>>(
+                      future: UrlHelper.getHeaders(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          );
+                        }
+                        final resolvedUrl = UrlHelper.fixImageUrl(thumbnailUrl!);
+                        if (resolvedUrl == null) {
                           return _buildDefaultIcon();
-                        },
-                      );
-                    },
-                  )
-                : _buildDefaultIcon(),
-          ),
-          
-          // Gradient overlay
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withOpacity(0.3),
-                ],
+                        }
+                        return Image.network(
+                          resolvedUrl,
+                          headers: snapshot.data,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildDefaultIcon();
+                          },
+                        );
+                      },
+                    )
+                  : _buildDefaultIcon(),
+            ),
+            // Gradient overlay
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.3),
+                  ],
+                ),
               ),
             ),
-          ),
-          
-          // Play button
-          Center(
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 12,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.play_arrow,
-                color: Colors.white,
-                size: 56,
-              ),
-            ),
-          ),
-          
-          // Video badge
-          Positioned(
-            bottom: 12,
-            right: 12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.play_circle_filled,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    'Video',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+            // Play button
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 12,
+                      spreadRadius: 2,
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                child: const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 56,
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDefaultIcon() {
-    return const Center(
-      child: Icon(
-        Icons.video_library,
-        color: Colors.white54,
-        size: 80,
+            // Video badge
+            Positioned(
+              bottom: 12,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'Video',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -195,6 +190,9 @@ class _VideoPlayerModalState extends State<VideoPlayerModal> {
         );
       } else {
         final fixedUrl = UrlHelper.fixImageUrl(widget.videoUrl);
+        if (fixedUrl == null) {
+          throw Exception('Không tìm thấy video hợp lệ để phát');
+        }
         _videoController = VideoPlayerController.network(fixedUrl);
       }
       
@@ -420,8 +418,12 @@ class _VideoPlayerModalState extends State<VideoPlayerModal> {
                 if (!snapshot.hasData) {
                   return const SizedBox.shrink();
                 }
+                final resolvedUrl = UrlHelper.fixImageUrl(widget.thumbnailUrl!);
+                if (resolvedUrl == null) {
+                  return const SizedBox.shrink();
+                }
                 return Image.network(
-                  UrlHelper.fixImageUrl(widget.thumbnailUrl!),
+                  resolvedUrl,
                   headers: snapshot.data,
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {

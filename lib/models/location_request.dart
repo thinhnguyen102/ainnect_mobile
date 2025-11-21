@@ -6,7 +6,7 @@ class LocationRequest {
   final double? longitude;
   final String? description;
   final bool? isCurrent;
-  final String? imagePath; // Local file path
+  final String? imageUrl; // Public URL
 
   LocationRequest({
     this.locationName,
@@ -16,7 +16,7 @@ class LocationRequest {
     this.longitude,
     this.description,
     this.isCurrent,
-    this.imagePath,
+    this.imageUrl,
   });
 
   bool get hasData =>
@@ -27,5 +27,5 @@ class LocationRequest {
       longitude != null ||
       description != null ||
       isCurrent != null ||
-      imagePath != null;
+      imageUrl != null;
 }

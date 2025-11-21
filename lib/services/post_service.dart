@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart' as http_parser;
 import '../models/post.dart';
 import '../models/comment.dart';
 import '../models/page_response.dart';
@@ -570,83 +568,31 @@ class PostService {
   Future<Post?> createPost(String token, CreatePostRequest request) async {
     try {
       final endpoint = '${Constants.baseUrl}/posts';
-      Logger.api('POST', endpoint);
-
-      // Tạo form data
-      final formData = http.MultipartRequest('POST', Uri.parse(endpoint));
-      
-      // Thêm headers
-      formData.headers.addAll({
+      final headers = {
         'Authorization': 'Bearer $token',
-      });
-
-      formData.fields.addAll({
+        'Content-Type': 'application/json',
+      };
+      final body = jsonEncode({
         'content': request.content,
         'visibility': request.visibility,
-        if (request.groupId != null) 'groupId': request.groupId.toString(),
+        if (request.groupId != null) 'groupId': request.groupId,
+        'mediaUrls': request.mediaUrls,
       });
 
-      Logger.debug('Uploading ${request.mediaFiles.length} media files');
-      for (final filePath in request.mediaFiles) {
-        try {
-          final file = File(filePath);
-          if (await file.exists()) {
-            String? mimeType;
-            final extension = filePath.toLowerCase().split('.').last;
-            if (['jpg', 'jpeg'].contains(extension)) {
-              mimeType = 'image/jpeg';
-            } else if (extension == 'png') {
-              mimeType = 'image/png';
-            } else if (extension == 'gif') {
-              mimeType = 'image/gif';
-            } else if (extension == 'webp') {
-              mimeType = 'image/webp';
-            } else if (extension == 'mp4') {
-              mimeType = 'video/mp4';
-            } else if (extension == 'mov') {
-              mimeType = 'video/quicktime';
-            } else if (extension == 'avi') {
-              mimeType = 'video/x-msvideo';
-            } else if (extension == 'mkv') {
-              mimeType = 'video/x-matroska';
-            }
-            
-            final multipartFile = await http.MultipartFile.fromPath(
-              'mediaFiles', // Key phải là 'mediaFiles' để backend nhận được
-              filePath,
-              contentType: mimeType != null ? http_parser.MediaType.parse(mimeType) : null,
-            );
-            formData.files.add(multipartFile);
-            Logger.debug('Added file: $filePath (${mimeType ?? 'auto-detect'})');
-          } else {
-            Logger.error('File not found: $filePath');
-          }
-        } catch (e) {
-          Logger.error('Error adding file $filePath: $e');
-        }
-      }
+      Logger.request('POST', endpoint, headers: headers, body: body);
+      final response = await http
+          .post(Uri.parse(endpoint), headers: headers, body: body)
+          .timeout(Constants.requestTimeout);
 
-      // Gửi request với timeout dài hơn cho video
-      final response = await formData.send().timeout(
-        const Duration(seconds: 120), // Tăng timeout cho video
-      );
-      final responseBody = await response.stream.bytesToString();
-
-      Logger.api(
-        'POST',
-        endpoint,
-        statusCode: response.statusCode,
-        response: responseBody,
-      );
+      Logger.response('POST', endpoint, response.statusCode, body: response.body);
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        final data = jsonDecode(responseBody);
+        final data = jsonDecode(response.body);
         return Post.fromJson(data);
       } else {
-        Logger.error('Create post failed: ${response.statusCode} - $responseBody');
+        Logger.error('Create post failed: ${response.statusCode} - ${response.body}');
+        return null;
       }
-
-      return null;
     } catch (e, stackTrace) {
       Logger.api(
         'POST',

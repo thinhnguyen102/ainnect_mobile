@@ -7,13 +7,13 @@ class CreatePostRequest {
   final String content;
   final String visibility;
   final int? groupId;
-  final List<String> mediaFiles;
+  final List<String> mediaUrls;
 
   CreatePostRequest({
     required this.content,
     this.visibility = 'public_',
     this.groupId,
-    this.mediaFiles = const [],
+    this.mediaUrls = const [],
   });
 
   factory CreatePostRequest.fromJson(Map<String, dynamic> json) =>

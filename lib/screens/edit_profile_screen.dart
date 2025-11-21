@@ -5,6 +5,7 @@ import 'dart:io';
 import '../models/update_profile_request.dart';
 import '../providers/auth_provider.dart';
 import '../services/profile_service.dart';
+import '../services/media_upload_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({Key? key}) : super(key: key);
@@ -16,6 +17,7 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final ProfileService _profileService = ProfileService();
+  final MediaUploadService _mediaUploadService = MediaUploadService();
   
   final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -121,6 +123,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         birthdayStr = '${_birthday!.year}-${_birthday!.month.toString().padLeft(2, '0')}-${_birthday!.day.toString().padLeft(2, '0')}';
       }
 
+      String? avatarUrl;
+      if (_avatarFile != null) {
+        if (!_mediaUploadService.isAvailable) {
+          throw Exception(_mediaUploadService.errorMessage ??
+              'Upload media chưa được cấu hình');
+        }
+        debugPrint('☁️ Uploading avatar via R2...');
+        avatarUrl = await _mediaUploadService.uploadFile(_avatarFile!);
+      }
+
+      String? coverUrl;
+      if (_coverFile != null) {
+        if (!_mediaUploadService.isAvailable) {
+          throw Exception(_mediaUploadService.errorMessage ??
+              'Upload media chưa được cấu hình');
+        }
+        debugPrint('☁️ Uploading cover via R2...');
+        coverUrl = await _mediaUploadService.uploadFile(_coverFile!);
+      }
+
       final request = UpdateProfileRequest(
         displayName: _displayNameController.text.isNotEmpty ? _displayNameController.text : null,
         phone: _phoneController.text.isNotEmpty ? _phoneController.text : null,
@@ -128,8 +150,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         gender: _gender,
         birthday: birthdayStr,
         location: _locationController.text.isNotEmpty ? _locationController.text : null,
-        avatarPath: _avatarFile?.path,
-        coverPath: _coverFile?.path,
+        avatarUrl: avatarUrl,
+        coverUrl: coverUrl,
       );
 
       final result = await _profileService.updateProfile(token, request);

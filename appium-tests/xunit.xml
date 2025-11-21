@@ -1,0 +1,12 @@
+<testsuite name="Mocha Tests" tests="0" failures="0" errors="1" skipped="-1" timestamp="Fri, 14 Nov 2025 02:53:26 GMT" time="2.739">
+<testcase classname="Complete Registration Tests (Data-Driven)" name="&#x22;before all&#x22; hook for &#x22;TC_REG_001: Valid Registration&#x22;" file="C:\Project\ainnect\appium-tests\test\register-full.test.js" time="2.719"><failure>Failed to create session.
+An unknown server-side error occurred while processing the command. Original error: Could not find a driver for automationName &#x27;UiAutomator2&#x27; and platformName &#x27;Android&#x27;. Have you installed a driver that supports those capabilities? Run &#x27;appium driver list --installed&#x27; to see. (Lower-level error: Could not find installed driver to support given caps)
+Error: Failed to create session.
+An unknown server-side error occurred while processing the command. Original error: Could not find a driver for automationName &#x27;UiAutomator2&#x27; and platformName &#x27;Android&#x27;. Have you installed a driver that supports those capabilities? Run &#x27;appium driver list --installed&#x27; to see. (Lower-level error: Could not find installed driver to support given caps)
+    at startWebDriverSession (file:///C:/Project/ainnect/appium-tests/node_modules/webdriver/build/utils.js:69:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async WebDriver.newSession (file:///C:/Project/ainnect/appium-tests/node_modules/webdriver/build/index.js:19:45)
+    at async remote (file:///C:/Project/ainnect/appium-tests/node_modules/webdriverio/build/index.js:46:22)
+    at async AppiumHelper.initDriver (helpers\appium-helper.js:15:19)
+    at async Context.&#x3C;anonymous&#x3E; (test\register-full.test.js:80:14)</failure></testcase>
+</testsuite>

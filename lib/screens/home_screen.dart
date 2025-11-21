@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/post.dart';
-import '../models/reaction.dart';
 import '../services/post_service.dart';
 import '../services/auth_service.dart';
 import '../utils/url_helper.dart';
@@ -14,7 +13,12 @@ import '../screens/create_post_screen.dart';
 import '../screens/search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final bool showGuestBanner;
+
+  const HomeScreen({
+    super.key,
+    this.showGuestBanner = false,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -69,10 +73,9 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       print('🔄 Loading posts: authenticated=$_isAuthenticated, page=$_currentPage, refresh=$refresh');
       
-      // Use public feed with authentication for personalized content
       final response = await _postService.getPublicFeed(
         page: _currentPage,
-        token: _authToken, // Send token if available
+        token: _authToken, 
       );
 
       print('📥 Received ${response.content.length} posts');
@@ -116,6 +119,212 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     }
+  }
+
+  bool get _shouldShowGuestBanner => widget.showGuestBanner && !_isAuthenticated;
+
+  void _navigateToLogin() {
+    if (!mounted) return;
+    Navigator.pushNamed(context, '/login');
+  }
+
+  void _navigateToRegister() {
+    if (!mounted) return;
+    Navigator.pushNamed(context, '/register');
+  }
+
+  Future<void> _openCreatePost() async {
+    if (!_isAuthenticated) {
+      _showAuthRequiredSheet();
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreatePostScreen(),
+      ),
+    );
+
+    if (result == true && mounted) {
+      _loadPosts(refresh: true);
+    }
+  }
+
+  void _showAuthRequiredSheet() {
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Bạn cần đăng nhập',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Đăng nhập hoặc tạo tài khoản để đăng bài, tương tác và tham gia cộng đồng Ainnect.',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(sheetContext).pop();
+                  _navigateToLogin();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E88E5),
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  'Đăng nhập',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.of(sheetContext).pop();
+                  _navigateToRegister();
+                },
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  'Tạo tài khoản mới',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGuestBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2563EB), Color(0xFF6366F1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Chào mừng đến Ainnect',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white.withOpacity(0.95),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Cùng chia sẽ câu chuyện thường ngày của bạn.',
+            style: TextStyle(
+              fontSize: 15,
+              color: Colors.white.withOpacity(0.85),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _navigateToLogin,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF1E88E5),
+                    minimumSize: const Size.fromHeight(46),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Đăng nhập',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _navigateToRegister,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.white),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(46),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Đăng ký',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   void _onScroll() {
@@ -231,6 +440,88 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPostComposer() {
+    if (!_isAuthenticated) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Chia sẻ câu chuyện của bạn',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Đăng nhập để tạo bài viết, bình luận và tương tác cùng cộng đồng.',
+              style: TextStyle(
+                color: Colors.grey[700],
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _navigateToLogin,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E88E5),
+                      minimumSize: const Size.fromHeight(46),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Đăng nhập',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _navigateToRegister,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(46),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Đăng ký',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
@@ -249,71 +540,61 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, authProvider, child) {
           return Column(
             children: [
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      if (authProvider.user != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ProfileScreen(userId: authProvider.user!.id),
-                          ),
-                        );
-                      }
-                    },
-                    child: CircleAvatar(
-                      radius: 24,
-                      backgroundColor: const Color(0xFF6366F1),
-                      backgroundImage: authProvider.user?.avatarUrl != null
-                          ? NetworkImage(UrlHelper.fixImageUrl(authProvider.user!.avatarUrl))
-                          : null,
-                      child: authProvider.user?.avatarUrl == null
-                          ? Text(
-                              (authProvider.user?.displayName ?? 'U')[0].toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
+              Builder(
+                builder: (context) {
+                  final avatarUrl = UrlHelper.fixImageUrl(authProvider.user?.avatarUrl);
+                  return Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          if (authProvider.user != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProfileScreen(userId: authProvider.user!.id),
                               ),
-                            )
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CreatePostScreen(),
-                          ),
-                        );
-                        
-                        // Refresh feed if post was created
-                        if (result == true) {
-                          print('🔄 Refreshing feed after creating post...');
-                          _loadPosts(refresh: true);
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5F7FA),
-                          borderRadius: BorderRadius.circular(24),
+                            );
+                          }
+                        },
+                        child: CircleAvatar(
+                          radius: 24,
+                          backgroundColor: const Color(0xFF6366F1),
+                          backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                          child: avatarUrl == null
+                              ? Text(
+                                  (authProvider.user?.displayName ?? 'U')[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                )
+                              : null,
                         ),
-                        child: const Text(
-                          "Bạn đang nghĩ gì hôm nay?",
-                          style: TextStyle(
-                            color: Colors.black54,
-                            fontSize: 15,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _openCreatePost(),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5F7FA),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: const Text(
+                              "Bạn đang nghĩ gì hôm nay?",
+                              style: TextStyle(
+                                color: Colors.black54,
+                                fontSize: 15,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                ],
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
               const Divider(height: 1),
@@ -325,49 +606,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     icon: Icons.photo_library_outlined,
                     label: 'Ảnh',
                     color: const Color(0xFF10B981),
-                    onTap: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CreatePostScreen(),
-                        ),
-                      );
-                      if (result == true) {
-                        _loadPosts(refresh: true);
-                      }
-                    },
+                    onTap: () => _openCreatePost(),
                   ),
                   _buildActionButton(
                     icon: Icons.videocam_outlined,
                     label: 'Video',
                     color: const Color(0xFFEF4444),
-                    onTap: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CreatePostScreen(),
-                        ),
-                      );
-                      if (result == true) {
-                        _loadPosts(refresh: true);
-                      }
-                    },
+                    onTap: () => _openCreatePost(),
                   ),
                   _buildActionButton(
                     icon: Icons.emoji_emotions_outlined,
                     label: 'Cảm xúc',
                     color: const Color(0xFFF59E0B),
-                    onTap: () async {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CreatePostScreen(),
-                        ),
-                      );
-                      if (result == true) {
-                        _loadPosts(refresh: true);
-                      }
-                    },
+                    onTap: () => _openCreatePost(),
                   ),
                 ],
               ),
@@ -486,129 +737,159 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               actions: [
-                IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F7FA),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.add, color: Color(0xFF6366F1), size: 20),
-                  ),
-                  onPressed: () async {
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CreatePostScreen(),
+                if (_isAuthenticated) ...[
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F7FA),
+                        shape: BoxShape.circle,
                       ),
-                    );
-                    if (result == true) {
-                      _loadPosts(refresh: true);
-                    }
-                  },
-                ),
-                IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F7FA),
-                      shape: BoxShape.circle,
+                      child: const Icon(Icons.add, color: Color(0xFF6366F1), size: 20),
                     ),
-                    child: const Icon(Icons.chat_bubble_outline, color: Color(0xFF6366F1), size: 20),
+                    onPressed: () => _openCreatePost(),
                   ),
-                  onPressed: () {
-                    // TODO: Implement messages
-                  },
-                ),
-                Consumer<AuthProvider>(
-                  builder: (context, authProvider, child) {
-                    return PopupMenuButton<String>(
-                      offset: const Offset(0, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F7FA),
+                        shape: BoxShape.circle,
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: const Color(0xFF6366F1),
-                          backgroundImage: authProvider.user?.avatarUrl != null
-                              ? NetworkImage(UrlHelper.fixImageUrl(authProvider.user!.avatarUrl))
-                              : null,
-                          child: authProvider.user?.avatarUrl == null
-                              ? Text(
-                                  (authProvider.user?.displayName ?? 'U')[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              : null,
+                      child: const Icon(Icons.chat_bubble_outline, color: Color(0xFF6366F1), size: 20),
+                    ),
+                    onPressed: () {
+                      // TODO: Implement messages
+                    },
+                  ),
+                  Consumer<AuthProvider>(
+                    builder: (context, authProvider, child) {
+                      return PopupMenuButton<String>(
+                        offset: const Offset(0, 50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                      ),
-                      onSelected: (value) async {
-                        if (value == 'profile' && authProvider.user != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ProfileScreen(userId: authProvider.user!.id),
-                            ),
-                          );
-                        } else if (value == 'logout') {
-                          final success = await authProvider.logout();
-                          if (success && mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Đã đăng xuất'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                            Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                          } else if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Đăng xuất thất bại'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      itemBuilder: (BuildContext context) => [
-                        PopupMenuItem<String>(
-                          value: 'profile',
-                          child: Row(
-                            children: [
-                              const Icon(Icons.person_outline, color: Color(0xFF6366F1)),
-                              const SizedBox(width: 12),
-                              Text(
-                                authProvider.user?.displayName ?? 'Người dùng',
-                                style: const TextStyle(fontWeight: FontWeight.w500),
-                              ),
-                            ],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Builder(
+                            builder: (context) {
+                              final avatarUrl = UrlHelper.fixImageUrl(authProvider.user?.avatarUrl);
+                              return CircleAvatar(
+                                radius: 18,
+                                backgroundColor: const Color(0xFF6366F1),
+                                backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                                child: avatarUrl == null
+                                    ? Text(
+                                        (authProvider.user?.displayName ?? 'U')[0].toUpperCase(),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : null,
+                              );
+                            },
                           ),
                         ),
-                        const PopupMenuItem<String>(
-                          value: 'logout',
-                          child: Row(
-                            children: [
-                              Icon(Icons.logout_outlined, color: Colors.red),
-                              SizedBox(width: 12),
-                              Text(
-                                'Đăng xuất',
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontWeight: FontWeight.w500,
+                        onSelected: (value) async {
+                          if (value == 'profile' && authProvider.user != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProfileScreen(userId: authProvider.user!.id),
+                              ),
+                            );
+                          } else if (value == 'logout') {
+                            final success = await authProvider.logout();
+                            if (success && mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Đã đăng xuất'),
+                                  backgroundColor: Colors.green,
                                 ),
-                              ),
-                            ],
+                              );
+                              Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+                            } else if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Đăng xuất thất bại'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        itemBuilder: (BuildContext context) {
+                        return <PopupMenuEntry<String>>[
+                          PopupMenuItem<String>(
+                            value: 'profile',
+                            child: Row(
+                              children: [
+                                const Icon(Icons.person_outline, color: Color(0xFF6366F1)),
+                                const SizedBox(width: 12),
+                                Text(
+                                  authProvider.user?.displayName ?? 'Người dùng',
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                          PopupMenuItem<String>(
+                            value: 'logout',
+                            child: Row(
+                              children: [
+                                Icon(Icons.logout_outlined, color: Colors.red),
+                                const SizedBox(width: 12),
+                                const Text(
+                                  'Đăng xuất',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ];
+                        },
+                      );
+                    },
+                  ),
+                ],
+                if (!_isAuthenticated) ...[
+                  TextButton(
+                    onPressed: _navigateToLogin,
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF1E88E5),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    child: const Text(
+                      'Đăng nhập',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  TextButton(
+                    onPressed: _navigateToRegister,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFF1E88E5),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: const Text(
+                      'Đăng ký',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(width: 8),
               ],
             ),
@@ -620,6 +901,10 @@ class _HomeScreenState extends State<HomeScreen> {
           child: CustomScrollView(
             controller: _scrollController,
             slivers: [
+              if (_shouldShowGuestBanner)
+                SliverToBoxAdapter(
+                  child: _buildGuestBanner(),
+                ),
               // Post Composer
               SliverToBoxAdapter(
                 child: _buildPostComposer(),
@@ -713,6 +998,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+      
       ),
     );
   }

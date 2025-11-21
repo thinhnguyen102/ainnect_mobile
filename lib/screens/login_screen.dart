@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../utils/constants.dart';
 import '../utils/server_config.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -59,6 +58,9 @@ class _LoginScreenState extends State<LoginScreen> {
             }
           });
         }
+      } else {
+        if (!mounted) return;
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
       }
     }
   }
@@ -185,13 +187,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 40),
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      hintText: 'nbxan@ainnect.me',
-                      prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF1E88E5)),
+                  Semantics(
+                    label: 'Email',
+                    textField: true,
+                    child: TextFormField(
+                      key: const Key('email_input'),
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        hintText: 'nbxan@ainnect.me',
+                        prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF1E88E5)),
                       filled: true,
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
@@ -220,15 +226,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       return null;
                     },
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: 'Mật khẩu',
-                      hintText: '••••••••',
-                      prefixIcon: const Icon(Icons.lock_outlined, color: Color(0xFF1E88E5)),
+                  Semantics(
+                    label: 'Mật khẩu',
+                    textField: true,
+                    child: TextFormField(
+                      key: const Key('password_input'),
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: 'Mật khẩu',
+                        hintText: '••••••••',
+                        prefixIcon: const Icon(Icons.lock_outlined, color: Color(0xFF1E88E5)),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -268,14 +279,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       return null;
                     },
+                    ),
                   ),
                   const SizedBox(height: 32),
                   Consumer<AuthProvider>(
                     builder: (context, authProvider, child) {
-                      return ElevatedButton(
-                        onPressed: authProvider.state == AuthState.loading
-                            ? null
-                            : _handleLogin,
+                      return Semantics(
+                        label: 'Đăng nhập',
+                        button: true,
+                        child: ElevatedButton(
+                          key: const Key('login_button'),
+                          onPressed: authProvider.state == AuthState.loading
+                              ? null
+                              : _handleLogin,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1E88E5),
                           foregroundColor: Colors.white,
@@ -302,6 +318,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   letterSpacing: 0.3,
                                 ),
                               ),
+                        ),
                       );
                     },
                   ),
@@ -316,16 +333,21 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontSize: 15,
                         ),
                       ),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.pushNamed(context, '/register');
-                        },
-                        child: const Text(
-                          'Đăng ký ngay',
-                          style: TextStyle(
-                            color: Color(0xFF1E88E5),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                      Semantics(
+                        label: 'Đăng ký ngay',
+                        button: true,
+                        child: GestureDetector(
+                          key: const Key('register_link'),
+                          onTap: () {
+                            Navigator.pushNamed(context, '/register');
+                          },
+                          child: const Text(
+                            'Đăng ký ngay',
+                            style: TextStyle(
+                              color: Color(0xFF1E88E5),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),

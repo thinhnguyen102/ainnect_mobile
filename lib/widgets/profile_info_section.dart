@@ -112,12 +112,11 @@ class ProfileInfoSection extends StatelessWidget {
           _buildSection(
             'Công việc',
             profile.workExperiences.map((work) {
+              final imageUrl = UrlHelper.fixImageUrl(work.imageUrl);
               return ListTile(
-                leading: work.imageUrl != null
+                leading: imageUrl != null
                     ? CircleAvatar(
-                        backgroundImage: NetworkImage(
-                          UrlHelper.fixImageUrl(work.imageUrl!),
-                        ),
+                        backgroundImage: NetworkImage(imageUrl),
                       )
                     : const CircleAvatar(
                         child: Icon(Icons.work),
@@ -144,12 +143,11 @@ class ProfileInfoSection extends StatelessWidget {
           _buildSection(
             'Học vấn',
             profile.educations.map((edu) {
+              final imageUrl = UrlHelper.fixImageUrl(edu.imageUrl);
               return ListTile(
-                leading: edu.imageUrl != null
+                leading: imageUrl != null
                     ? CircleAvatar(
-                        backgroundImage: NetworkImage(
-                          UrlHelper.fixImageUrl(edu.imageUrl!),
-                        ),
+                        backgroundImage: NetworkImage(imageUrl),
                       )
                     : const CircleAvatar(
                         child: Icon(Icons.school),

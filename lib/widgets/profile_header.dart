@@ -27,13 +27,16 @@ class ProfileHeader extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (profile.coverUrl != null)
-                Image.network(
-                  UrlHelper.fixImageUrl(profile.coverUrl!),
-                  fit: BoxFit.cover,
-                )
-              else
-                Container(
+              Builder(
+                builder: (_) {
+                  final coverUrl = UrlHelper.fixImageUrl(profile.coverUrl);
+                  if (coverUrl != null) {
+                    return Image.network(
+                      coverUrl,
+                      fit: BoxFit.cover,
+                    );
+                  }
+                  return Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -44,6 +47,8 @@ class ProfileHeader extends StatelessWidget {
                       ],
                     ),
                   ),
+                );
+              },
                 ),
               if (isCurrentUser)
                 Positioned(
@@ -71,22 +76,25 @@ class ProfileHeader extends StatelessWidget {
               CircleAvatar(
                 radius: 60,
                 backgroundColor: Colors.white,
-                child: CircleAvatar(
-                  radius: 56,
-                  backgroundColor: Theme.of(context).primaryColor,
-                  backgroundImage: profile.avatarUrl != null
-                      ? NetworkImage(UrlHelper.fixImageUrl(profile.avatarUrl!))
-                      : null,
-                  child: profile.avatarUrl == null
-                      ? Text(
-                          profile.displayName[0].toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 40,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
+                child: Builder(
+                  builder: (_) {
+                    final avatarUrl = UrlHelper.fixImageUrl(profile.avatarUrl);
+                    return CircleAvatar(
+                      radius: 56,
+                      backgroundColor: Theme.of(context).primaryColor,
+                      backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                      child: avatarUrl == null
+                          ? Text(
+                              profile.displayName[0].toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 40,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
+                    );
+                  },
                 ),
               ),
               if (isCurrentUser)

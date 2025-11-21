@@ -12,7 +12,8 @@ class Group {
   final String? avatarUrl;
   @JsonKey(name: 'coverUrl')
   final String? coverImageUrl;
-  final bool requiresApproval;
+  final bool requiresApproval; 
+  
   final int ownerId;
   final String ownerUsername;
   final String ownerDisplayName;

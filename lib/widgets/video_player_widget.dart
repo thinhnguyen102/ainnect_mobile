@@ -35,6 +35,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   Future<void> _initializePlayer() async {
     try {
       final fixedUrl = UrlHelper.fixImageUrl(widget.videoUrl);
+      if (fixedUrl == null) {
+        throw Exception('Không tìm thấy URL video hợp lệ');
+      }
       
       // Try to create video player controller
       try {

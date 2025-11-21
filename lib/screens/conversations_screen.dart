@@ -354,11 +354,36 @@ class _ConversationItem extends StatelessWidget {
             );
           }
           
+          final resolvedUrl = UrlHelper.fixImageUrl(conversation.displayAvatar);
+          if (resolvedUrl == null) {
+            return Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                color: Color(0xFF6366F1),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  (conversation.displayTitle.isNotEmpty
+                          ? conversation.displayTitle[0]
+                          : '?')
+                      .toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            );
+          }
+
           return CircleAvatar(
             radius: 28,
             backgroundColor: const Color(0xFFE5E7EB),
             backgroundImage: NetworkImage(
-              UrlHelper.fixImageUrl(conversation.displayAvatar!),
+              resolvedUrl,
               headers: snapshot.data,
             ),
           );

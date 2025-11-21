@@ -2,17 +2,55 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../models/suggestion_models.dart';
 import '../services/suggestion_service.dart';
+import '../utils/url_helper.dart';
+
+Future<Map<String, String>>? _suggestionAvatarHeaders;
+
+Widget _buildSuggestionAvatar(
+  String? imageUrl,
+  IconData placeholder, {
+  double radius = 20,
+}) {
+  final fixedUrl = UrlHelper.fixImageUrl(imageUrl);
+  if (fixedUrl == null) {
+    return CircleAvatar(
+      radius: radius,
+      child: Icon(placeholder),
+    );
+  }
+  _suggestionAvatarHeaders ??= UrlHelper.getHeaders();
+  return FutureBuilder<Map<String, String>>(
+    future: _suggestionAvatarHeaders,
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) {
+        return CircleAvatar(
+          radius: radius,
+          child: Icon(placeholder),
+        );
+      }
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: NetworkImage(
+          fixedUrl,
+          headers: snapshot.data,
+        ),
+      );
+    },
+  );
+}
 
 class SchoolSuggestionField extends StatefulWidget {
   final String? initialValue;
   final Function(String schoolName, String? imageUrl) onSelected;
   final String token;
+  final ValueChanged<String>? onChanged;
 
   const SchoolSuggestionField({
     Key? key,
     this.initialValue,
     required this.onSelected,
     required this.token,
+    this.onChanged,
   }) : super(key: key);
 
   @override
@@ -25,7 +63,6 @@ class _SchoolSuggestionFieldState extends State<SchoolSuggestionField> {
   List<SchoolSuggestion> _suggestions = [];
   bool _isLoading = false;
   Timer? _debounce;
-  String? _selectedImageUrl;
 
   @override
   void initState() {
@@ -95,7 +132,10 @@ class _SchoolSuggestionFieldState extends State<SchoolSuggestionField> {
               borderSide: const BorderSide(color: Color(0xFF1E88E5), width: 2),
             ),
           ),
-          onChanged: _onSearchChanged,
+          onChanged: (value) {
+            _onSearchChanged(value);
+            widget.onChanged?.call(value);
+          },
         ),
         if (_suggestions.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -118,21 +158,16 @@ class _SchoolSuggestionFieldState extends State<SchoolSuggestionField> {
               itemBuilder: (context, index) {
                 final suggestion = _suggestions[index];
                 return ListTile(
-                  leading: suggestion.imageUrl != null
-                      ? CircleAvatar(
-                          backgroundImage: NetworkImage(suggestion.imageUrl!),
-                          radius: 20,
-                        )
-                      : const CircleAvatar(
-                          child: Icon(Icons.school),
-                          radius: 20,
-                        ),
+                  leading: _buildSuggestionAvatar(
+                    suggestion.imageUrl,
+                    Icons.school,
+                  ),
                   title: Text(suggestion.schoolName),
                   subtitle: Text('${suggestion.count} người đã học'),
                   onTap: () {
                     _controller.text = suggestion.schoolName;
-                    _selectedImageUrl = suggestion.imageUrl;
                     widget.onSelected(suggestion.schoolName, suggestion.imageUrl);
+                    widget.onChanged?.call(suggestion.schoolName);
                     setState(() {
                       _suggestions = [];
                     });
@@ -151,12 +186,14 @@ class CompanySuggestionField extends StatefulWidget {
   final String? initialValue;
   final Function(String companyName, String? imageUrl) onSelected;
   final String token;
+  final ValueChanged<String>? onChanged;
 
   const CompanySuggestionField({
     Key? key,
     this.initialValue,
     required this.onSelected,
     required this.token,
+    this.onChanged,
   }) : super(key: key);
 
   @override
@@ -169,7 +206,6 @@ class _CompanySuggestionFieldState extends State<CompanySuggestionField> {
   List<CompanySuggestion> _suggestions = [];
   bool _isLoading = false;
   Timer? _debounce;
-  String? _selectedImageUrl;
 
   @override
   void initState() {
@@ -239,7 +275,10 @@ class _CompanySuggestionFieldState extends State<CompanySuggestionField> {
               borderSide: const BorderSide(color: Color(0xFF1E88E5), width: 2),
             ),
           ),
-          onChanged: _onSearchChanged,
+          onChanged: (value) {
+            _onSearchChanged(value);
+            widget.onChanged?.call(value);
+          },
         ),
         if (_suggestions.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -262,21 +301,16 @@ class _CompanySuggestionFieldState extends State<CompanySuggestionField> {
               itemBuilder: (context, index) {
                 final suggestion = _suggestions[index];
                 return ListTile(
-                  leading: suggestion.imageUrl != null
-                      ? CircleAvatar(
-                          backgroundImage: NetworkImage(suggestion.imageUrl!),
-                          radius: 20,
-                        )
-                      : const CircleAvatar(
-                          child: Icon(Icons.business),
-                          radius: 20,
-                        ),
+                  leading: _buildSuggestionAvatar(
+                    suggestion.imageUrl,
+                    Icons.business,
+                  ),
                   title: Text(suggestion.companyName),
                   subtitle: Text('${suggestion.count} người đã làm việc'),
                   onTap: () {
                     _controller.text = suggestion.companyName;
-                    _selectedImageUrl = suggestion.imageUrl;
                     widget.onSelected(suggestion.companyName, suggestion.imageUrl);
+                    widget.onChanged?.call(suggestion.companyName);
                     setState(() {
                       _suggestions = [];
                     });
@@ -295,12 +329,14 @@ class InterestSuggestionField extends StatefulWidget {
   final String? initialValue;
   final Function(String name, String? imageUrl) onSelected;
   final String token;
+  final ValueChanged<String>? onChanged;
 
   const InterestSuggestionField({
     Key? key,
     this.initialValue,
     required this.onSelected,
     required this.token,
+    this.onChanged,
   }) : super(key: key);
 
   @override
@@ -313,7 +349,6 @@ class _InterestSuggestionFieldState extends State<InterestSuggestionField> {
   List<InterestSuggestion> _suggestions = [];
   bool _isLoading = false;
   Timer? _debounce;
-  String? _selectedImageUrl;
 
   @override
   void initState() {
@@ -383,7 +418,10 @@ class _InterestSuggestionFieldState extends State<InterestSuggestionField> {
               borderSide: const BorderSide(color: Color(0xFF1E88E5), width: 2),
             ),
           ),
-          onChanged: _onSearchChanged,
+          onChanged: (value) {
+            _onSearchChanged(value);
+            widget.onChanged?.call(value);
+          },
         ),
         if (_suggestions.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -406,21 +444,16 @@ class _InterestSuggestionFieldState extends State<InterestSuggestionField> {
               itemBuilder: (context, index) {
                 final suggestion = _suggestions[index];
                 return ListTile(
-                  leading: suggestion.imageUrl != null
-                      ? CircleAvatar(
-                          backgroundImage: NetworkImage(suggestion.imageUrl!),
-                          radius: 20,
-                        )
-                      : const CircleAvatar(
-                          child: Icon(Icons.interests),
-                          radius: 20,
-                        ),
+                  leading: _buildSuggestionAvatar(
+                    suggestion.imageUrl,
+                    Icons.interests,
+                  ),
                   title: Text(suggestion.name),
                   subtitle: Text('${suggestion.count} người quan tâm'),
                   onTap: () {
                     _controller.text = suggestion.name;
-                    _selectedImageUrl = suggestion.imageUrl;
                     widget.onSelected(suggestion.name, suggestion.imageUrl);
+                    widget.onChanged?.call(suggestion.name);
                     setState(() {
                       _suggestions = [];
                     });
@@ -439,12 +472,14 @@ class LocationSuggestionField extends StatefulWidget {
   final String? initialValue;
   final Function(String locationName, String? imageUrl) onSelected;
   final String token;
+  final ValueChanged<String>? onChanged;
 
   const LocationSuggestionField({
     Key? key,
     this.initialValue,
     required this.onSelected,
     required this.token,
+    this.onChanged,
   }) : super(key: key);
 
   @override
@@ -457,7 +492,6 @@ class _LocationSuggestionFieldState extends State<LocationSuggestionField> {
   List<LocationSuggestion> _suggestions = [];
   bool _isLoading = false;
   Timer? _debounce;
-  String? _selectedImageUrl;
 
   @override
   void initState() {
@@ -527,7 +561,10 @@ class _LocationSuggestionFieldState extends State<LocationSuggestionField> {
               borderSide: const BorderSide(color: Color(0xFF1E88E5), width: 2),
             ),
           ),
-          onChanged: _onSearchChanged,
+          onChanged: (value) {
+            _onSearchChanged(value);
+            widget.onChanged?.call(value);
+          },
         ),
         if (_suggestions.isNotEmpty) ...[
           const SizedBox(height: 8),
@@ -550,21 +587,16 @@ class _LocationSuggestionFieldState extends State<LocationSuggestionField> {
               itemBuilder: (context, index) {
                 final suggestion = _suggestions[index];
                 return ListTile(
-                  leading: suggestion.imageUrl != null
-                      ? CircleAvatar(
-                          backgroundImage: NetworkImage(suggestion.imageUrl!),
-                          radius: 20,
-                        )
-                      : const CircleAvatar(
-                          child: Icon(Icons.location_on),
-                          radius: 20,
-                        ),
+                  leading: _buildSuggestionAvatar(
+                    suggestion.imageUrl,
+                    Icons.location_on,
+                  ),
                   title: Text(suggestion.locationName),
                   subtitle: Text('${suggestion.count} lượt check-in'),
                   onTap: () {
                     _controller.text = suggestion.locationName;
-                    _selectedImageUrl = suggestion.imageUrl;
                     widget.onSelected(suggestion.locationName, suggestion.imageUrl);
+                    widget.onChanged?.call(suggestion.locationName);
                     setState(() {
                       _suggestions = [];
                     });

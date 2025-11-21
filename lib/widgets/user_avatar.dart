@@ -35,16 +35,18 @@ class _UserAvatarState extends State<UserAvatar> {
       child: FutureBuilder<Map<String, String>>(
         future: _headersFuture,
         builder: (context, snapshot) {
+          final headers = snapshot.data;
+          final fixedUrl = UrlHelper.fixImageUrl(widget.avatarUrl);
+          ImageProvider? provider;
+          if (fixedUrl != null && headers != null) {
+            provider = NetworkImage(fixedUrl, headers: headers);
+          }
+
           return CircleAvatar(
             radius: widget.radius,
             backgroundColor: const Color(0xFF1E88E5),
-            backgroundImage: widget.avatarUrl != null && snapshot.hasData
-                ? NetworkImage(
-                    UrlHelper.fixImageUrl(widget.avatarUrl!),
-                    headers: snapshot.data,
-                  )
-                : null,
-            child: widget.avatarUrl == null
+            backgroundImage: provider,
+            child: provider == null
                 ? Text(
                     widget.displayName[0].toUpperCase(),
                     style: const TextStyle(

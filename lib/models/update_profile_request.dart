@@ -5,8 +5,8 @@ class UpdateProfileRequest {
   final String? gender; // MALE or FEMALE
   final String? birthday; // yyyy-MM-dd format
   final String? location;
-  final String? avatarPath; // Local file path for avatar
-  final String? coverPath; // Local file path for cover
+  final String? avatarUrl; // Public URL for avatar
+  final String? coverUrl; // Public URL for cover
 
   UpdateProfileRequest({
     this.displayName,
@@ -15,8 +15,8 @@ class UpdateProfileRequest {
     this.gender,
     this.birthday,
     this.location,
-    this.avatarPath,
-    this.coverPath,
+    this.avatarUrl,
+    this.coverUrl,
   });
 
   bool get hasData => displayName != null ||
@@ -25,6 +25,6 @@ class UpdateProfileRequest {
       gender != null ||
       birthday != null ||
       location != null ||
-      avatarPath != null ||
-      coverPath != null;
+      avatarUrl != null ||
+      coverUrl != null;
 }

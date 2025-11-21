@@ -108,17 +108,21 @@ class _WorkExperienceListScreenState extends State<WorkExperienceListScreen> {
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(16),
-                        leading: work.imageUrl != null
-                            ? CircleAvatar(
-                                backgroundImage: NetworkImage(
-                                  UrlHelper.fixImageUrl(work.imageUrl!),
-                                ),
-                                radius: 28,
-                              )
-                            : const CircleAvatar(
+                        leading: Builder(
+                          builder: (context) {
+                            final imageUrl = UrlHelper.fixImageUrl(work.imageUrl);
+                            if (imageUrl == null) {
+                              return const CircleAvatar(
                                 child: Icon(Icons.work),
                                 radius: 28,
-                              ),
+                              );
+                            }
+                            return CircleAvatar(
+                              backgroundImage: NetworkImage(imageUrl),
+                              radius: 28,
+                            );
+                          },
+                        ),
                         title: Text(
                           work.position,
                           style: const TextStyle(
@@ -160,3 +164,4 @@ class _WorkExperienceListScreenState extends State<WorkExperienceListScreen> {
     );
   }
 }
+

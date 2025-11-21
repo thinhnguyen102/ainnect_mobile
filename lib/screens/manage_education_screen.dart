@@ -6,7 +6,9 @@ import '../models/profile.dart';
 import '../models/education_request.dart';
 import '../providers/auth_provider.dart';
 import '../services/profile_service.dart';
+import '../services/media_upload_service.dart';
 import '../widgets/suggestion_fields.dart';
+import '../utils/url_helper.dart';
 
 class ManageEducationScreen extends StatefulWidget {
   final Education? education; // null = add new, not null = edit
@@ -25,6 +27,7 @@ class ManageEducationScreen extends StatefulWidget {
 class _ManageEducationScreenState extends State<ManageEducationScreen> {
   final _formKey = GlobalKey<FormState>();
   final ProfileService _profileService = ProfileService();
+  final MediaUploadService _mediaUploadService = MediaUploadService();
   
   String? _schoolName;
   String? _degree;
@@ -36,6 +39,26 @@ class _ManageEducationScreenState extends State<ManageEducationScreen> {
   File? _imageFile;
   String? _imageUrl;
   bool _isLoading = false;
+
+  String? _normalize(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  Widget _buildRemoteImagePreview() {
+    final fixedUrl = UrlHelper.fixImageUrl(_imageUrl);
+    if (fixedUrl == null) {
+      return Container(
+        height: 200,
+        color: Colors.grey[200],
+        child: const Center(
+          child: Icon(Icons.image_not_supported, color: Colors.grey),
+        ),
+      );
+    }
+    return Image.network(fixedUrl, height: 200, fit: BoxFit.cover);
+  }
 
   @override
   void initState() {
@@ -89,7 +112,8 @@ class _ManageEducationScreenState extends State<ManageEducationScreen> {
       return;
     }
 
-    if (_schoolName == null || _schoolName!.isEmpty) {
+    final normalizedSchoolName = _normalize(_schoolName);
+    if (normalizedSchoolName == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Vui lòng nhập tên trường học'),
@@ -109,20 +133,39 @@ class _ManageEducationScreenState extends State<ManageEducationScreen> {
         throw Exception('Chưa đăng nhập');
       }
 
+      final normalizedDegree = _normalize(_degree);
+      final normalizedFieldOfStudy = _normalize(_fieldOfStudy);
+      final normalizedDescription = _normalize(_description);
+
       // Build description with all info
       final descriptionParts = <String>[];
-      if (_degree != null) descriptionParts.add('Bằng: $_degree');
-      if (_fieldOfStudy != null) descriptionParts.add('Chuyên ngành: $_fieldOfStudy');
-      if (_description != null) descriptionParts.add(_description!);
-      
-      final fullDescription = '${_schoolName ?? ''}\n${descriptionParts.join('\n')}';
+      if (normalizedDegree != null) descriptionParts.add('Bằng: $normalizedDegree');
+      if (normalizedFieldOfStudy != null) descriptionParts.add('Chuyên ngành: $normalizedFieldOfStudy');
+      if (normalizedDescription != null) descriptionParts.add(normalizedDescription);
+      final fullDescription = [
+        normalizedSchoolName,
+        if (descriptionParts.isNotEmpty) descriptionParts.join('\n'),
+      ].whereType<String>().join('\n');
+
+      if (_imageFile != null && !_mediaUploadService.isAvailable) {
+        throw Exception(_mediaUploadService.errorMessage ??
+            'Upload media chưa được cấu hình');
+      }
+
+      String? uploadUrl = _imageUrl;
+      if (_imageFile != null) {
+        uploadUrl = await _mediaUploadService.uploadFile(_imageFile!);
+      }
 
       final request = EducationRequest(
+        schoolName: normalizedSchoolName,
+        degree: normalizedDegree,
+        fieldOfStudy: normalizedFieldOfStudy,
         startDate: _startDate,
         endDate: _isCurrent ? null : _endDate,
         isCurrent: _isCurrent,
-        description: fullDescription,
-        imagePath: _imageFile?.path,
+        description: fullDescription.isEmpty ? null : fullDescription,
+        imageUrl: uploadUrl,
       );
 
       Map<String, dynamic> result;
@@ -197,6 +240,8 @@ class _ManageEducationScreenState extends State<ManageEducationScreen> {
         ],
       ),
     );
+
+    if (!mounted) return;
 
     if (confirm != true) return;
 
@@ -298,6 +343,7 @@ class _ManageEducationScreenState extends State<ManageEducationScreen> {
                               _imageUrl = imageUrl;
                             });
                           },
+                          onChanged: (value) => _schoolName = value,
                         ),
 
                     const SizedBox(height: 16),
@@ -436,7 +482,7 @@ class _ManageEducationScreenState extends State<ManageEducationScreen> {
                         borderRadius: BorderRadius.circular(12),
                         child: _imageFile != null
                             ? Image.file(_imageFile!, height: 200, fit: BoxFit.cover)
-                            : Image.network(_imageUrl!, height: 200, fit: BoxFit.cover),
+                            : _buildRemoteImagePreview(),
                       ),
                     ],
 

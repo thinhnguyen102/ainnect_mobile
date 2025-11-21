@@ -1,18 +1,18 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'dart:async'; // Added to resolve TimeoutException
+import 'dart:async';
 import '../utils/constants.dart';
 import '../utils/logger.dart';
+import '../models/api_response.dart';
+import '../models/group.dart';
 
 class GroupService {
-  Future<Map<String, dynamic>> createGroup({
+  Future<Group?> createGroup({
     required String name,
     required String description,
     required String visibility,
-    required File coverImage,
+    File? coverImage,
     required List<Map<String, dynamic>> joinQuestions,
     required String token,
   }) async {
@@ -24,22 +24,42 @@ class GroupService {
     request.fields['visibility'] = visibility;
     request.fields['joinQuestions'] = jsonEncode(joinQuestions);
 
-    request.files.add(await http.MultipartFile.fromPath('coverImage', coverImage.path));
+    if (coverImage != null) {
+      request.files.add(await http.MultipartFile.fromPath('coverImage', coverImage.path));
+    }
 
     request.headers['Authorization'] = 'Bearer $token'; 
 
     Logger.debug('Creating group with name: $name');
 
     try {
-      final streamedResponse = await request.send();
+      final streamedResponse = await request.send().timeout(
+        Constants.requestTimeout,
+        onTimeout: () {
+          throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
+        },
+      );
       final response = await http.Response.fromStream(streamedResponse);
 
       Logger.response('POST', endpoint, response.statusCode, body: response.body);
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final apiResponse = ApiResponse<Group>.fromJson(
+          data,
+          (json) => Group.fromJson(json as Map<String, dynamic>),
+        );
+        
+        if (apiResponse.result == 'SUCCESS') {
+          Logger.debug('Successfully created group: ${apiResponse.data.id}');
+          return apiResponse.data;
+        } else {
+          throw Exception(apiResponse.message);
+        }
       } else {
-        throw Exception('Failed to create group: ${response.body}');
+        final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+        final errorMessage = errorData['message'] ?? 'Failed to create group';
+        throw Exception(errorMessage);
       }
     } catch (e, stackTrace) {
       Logger.error('Error creating group', error: e, stackTrace: stackTrace);

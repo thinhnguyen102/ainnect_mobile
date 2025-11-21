@@ -411,11 +411,28 @@ class _NotificationItem extends StatelessWidget {
             );
           }
           
+          final resolvedUrl = UrlHelper.fixImageUrl(notification.actor!.avatarUrl);
+          if (resolvedUrl == null) {
+            return Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: _getTypeColor(),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _getTypeIcon(),
+                color: Colors.white,
+                size: 24,
+              ),
+            );
+          }
+
           return CircleAvatar(
             radius: 24,
             backgroundColor: const Color(0xFFE5E7EB),
             backgroundImage: NetworkImage(
-              UrlHelper.fixImageUrl(notification.actor!.avatarUrl!),
+              resolvedUrl,
               headers: snapshot.data,
             ),
           );

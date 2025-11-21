@@ -274,25 +274,20 @@ class MessagingService {
   }
 
   // Upload file and send message
-  Future<MessageResponse> uploadAndSendMessage(
-    int conversationId,
-    String filePath,
-  ) async {
-    final endpoint = '${Constants.baseUrl}/messaging/conversations/$conversationId/messages/upload';
-    final token = await _getAuthToken();
-    
-    Logger.request('POST', endpoint, headers: {'Authorization': 'Bearer $token'});
-    
+  Future<MessageResponse> sendMessageHttp(SendMessageRequest request) async {
+    final endpoint = '${Constants.baseUrl}/messaging/conversations/${request.conversationId}/messages';
+    final headers = await _getHeaders();
+    final body = jsonEncode(request.toJson());
+
+    Logger.request('POST', endpoint, headers: headers, body: body);
+
     try {
-      var request = http.MultipartRequest('POST', Uri.parse(endpoint));
-      request.headers['Authorization'] = 'Bearer $token';
-      request.files.add(await http.MultipartFile.fromPath('file', filePath));
-      
-      final streamedResponse = await request.send().timeout(Constants.requestTimeout);
-      final response = await http.Response.fromStream(streamedResponse);
-      
+      final response = await http
+          .post(Uri.parse(endpoint), headers: headers, body: body)
+          .timeout(Constants.requestTimeout);
+
       Logger.response('POST', endpoint, response.statusCode, body: response.body);
-      
+
       final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
         jsonDecode(response.body),
         (json) => json as Map<String, dynamic>,
@@ -304,7 +299,7 @@ class MessagingService {
         throw Exception(apiResponse.message);
       }
     } catch (e) {
-      Logger.error('Error uploading file: $e');
+      Logger.error('Error sending message via HTTP: $e');
       rethrow;
     }
   }

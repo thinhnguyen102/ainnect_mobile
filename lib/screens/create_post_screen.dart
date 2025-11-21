@@ -1,8 +1,7 @@
-import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'package:provider/provider.dart';
 import '../models/create_post_request.dart';
 import '../providers/auth_provider.dart';
@@ -10,7 +9,7 @@ import '../services/post_service.dart';
 import '../services/websocket_service.dart';
 import '../widgets/user_avatar.dart';
 import '../widgets/media_preview.dart';
-import '../widgets/bottom_nav_bar.dart';
+import '../services/media_upload_service.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -20,6 +19,77 @@ class CreatePostScreen extends StatefulWidget {
 }
 
 class _CreatePostScreenState extends State<CreatePostScreen> {
+  final MediaUploadService _mediaUploadService = MediaUploadService();
+
+  Future<void> _addMediaFromDevice() async {
+    if (_selectedMedia.length >= _maxMediaFiles) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Bạn chỉ có thể đăng tối đa $_maxMediaFiles ảnh/video'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    if (!_mediaUploadService.isAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _mediaUploadService.errorMessage ??
+                'Tải lên Cloudflare R2 chưa được cấu hình. Vui lòng kiểm tra biến môi trường.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+      // Show dialog to pick image or video
+      final mediaType = await showDialog<String>(
+        context: context,
+        builder: (context) => SimpleDialog(
+          title: const Text('Chọn loại media'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, 'image'),
+              child: const Text('Ảnh'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, 'video'),
+              child: const Text('Video'),
+            ),
+          ],
+        ),
+      );
+      if (mediaType == null) return;
+      XFile? picked;
+      if (mediaType == 'image') {
+        picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+      } else if (mediaType == 'video') {
+        picked = await _imagePicker.pickVideo(source: ImageSource.gallery);
+      }
+      if (picked == null) return;
+      setState(() { _isLoading = true; });
+    try {
+      final file = File(picked.path);
+      final cdnUrl = await _mediaUploadService.uploadFile(file);
+      setState(() {
+        _selectedMedia.add(cdnUrl);
+        _mediaTypes.add(_detectMediaType(cdnUrl));
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tải lên thành công!'), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi tải lên: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+  static const int _maxMediaFiles = 6;
   final _contentController = TextEditingController();
   final _postService = PostService();
   final _imagePicker = ImagePicker();
@@ -95,48 +165,72 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    try {
-      final images = await _imagePicker.pickMultiImage();
-      if (images.isNotEmpty) {
-        setState(() {
-          for (var image in images) {
-            _selectedMedia.add(image.path);
-            _mediaTypes.add('image');
-          }
-        });
-      }
-    } catch (e) {
+  Future<void> _addMediaUrls() async {
+    if (_selectedMedia.length >= _maxMediaFiles) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Không thể chọn ảnh: $e'),
-            backgroundColor: Colors.red,
+            content: Text('Bạn chỉ có thể đăng tối đa $_maxMediaFiles ảnh/video'),
+            backgroundColor: Colors.orange,
           ),
         );
       }
+      return;
+    }
+
+    final controller = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Thêm URL media'),
+          content: const Text('Dán 1 hoặc nhiều URL, mỗi dòng một URL'),
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          contentTextStyle: const TextStyle(color: Colors.black87),
+          scrollable: true,
+          // ...existing code...
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Thêm'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == true) {
+      final lines = controller.text
+          .split(RegExp(r'[\n,]'))
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      if (lines.isEmpty) return;
+
+      setState(() {
+        final remaining = _maxMediaFiles - _selectedMedia.length;
+        for (final url in lines.take(remaining)) {
+          _selectedMedia.add(url);
+          _mediaTypes.add(_detectMediaType(url));
+        }
+      });
     }
   }
 
-  Future<void> _pickVideo() async {
-    try {
-      final video = await _imagePicker.pickVideo(source: ImageSource.gallery);
-      if (video != null) {
-        setState(() {
-          _selectedMedia.add(video.path);
-          _mediaTypes.add('video');
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Không thể chọn video: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+  String _detectMediaType(String url) {
+    final lower = url.toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.webp') || lower.endsWith('.gif')) {
+      return 'image';
     }
+    if (lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.mkv') || lower.endsWith('.avi') || lower.contains('.m3u8')) {
+      return 'video';
+    }
+    return 'file';
   }
 
   Future<void> _createPost() async {
@@ -169,7 +263,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final request = CreatePostRequest(
         content: _contentController.text.trim(),
         visibility: _visibility,
-        mediaFiles: _selectedMedia,
+        mediaUrls: _selectedMedia,
       );
 
       // Gửi request và nhận response ngay lập tức (HTTP 201)
@@ -338,6 +432,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         ],
                       ),
                     ),
+                    // Chỉ giữ lại nút upload từ thiết bị
+                    IconButton(
+                      icon: const Icon(Icons.upload_file, color: Colors.blue),
+                      tooltip: 'Tải ảnh từ thiết bị',
+                      onPressed: _isLoading ? null : _addMediaFromDevice,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -363,12 +463,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       separatorBuilder: (context, index) =>
                           const SizedBox(width: 8),
                       itemBuilder: (context, index) {
-                        final file = File(_selectedMedia[index]);
+                        final mediaUrl = _selectedMedia[index];
                         final mediaType = _mediaTypes[index];
                         return Stack(
                           children: [
                             MediaPreview(
-                              mediaUrl: file.path,
+                              mediaUrl: mediaUrl,
                               mediaType: mediaType,
                               onRemove: () {
                                 setState(() {
@@ -388,24 +488,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 const Divider(),
 
                 // Actions
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton.icon(
-                        onPressed: _isLoading ? null : _pickImage,
-                        icon: const Icon(Icons.image),
-                        label: const Text('Thêm ảnh'),
+                // Đã bỏ nút thêm URL media thủ công
+                if (_selectedMedia.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      '${_selectedMedia.length}/$_maxMediaFiles ảnh/video',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _selectedMedia.length >= _maxMediaFiles ? Colors.orange : Colors.grey,
+                        fontWeight: _selectedMedia.length >= _maxMediaFiles ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
-                    Expanded(
-                      child: TextButton.icon(
-                        onPressed: _isLoading ? null : _pickVideo,
-                        icon: const Icon(Icons.videocam),
-                        label: const Text('Thêm video'),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,

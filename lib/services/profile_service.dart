@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
 import 'package:flutter/foundation.dart';
 import '../models/profile.dart';
 import '../models/api_response.dart';
@@ -522,89 +520,30 @@ class ProfileService {
           'message': 'Không có thông tin nào được cập nhật',
         };
       }
+      final headers = {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      };
+      final body = jsonEncode({
+        if (request.displayName != null) 'displayName': request.displayName,
+        if (request.phone != null) 'phone': request.phone,
+        if (request.bio != null) 'bio': request.bio,
+        if (request.gender != null) 'gender': request.gender,
+        if (request.birthday != null) 'birthday': request.birthday,
+        if (request.location != null) 'location': request.location,
+        if (request.avatarUrl != null) 'avatarUrl': request.avatarUrl,
+        if (request.coverUrl != null) 'coverUrl': request.coverUrl,
+      });
 
-      debugPrint('⏳ Creating multipart request...');
-      final uri = Uri.parse(endpoint);
-      final multipartRequest = http.MultipartRequest('PUT', uri);
-      
-      // Add authorization header
-      multipartRequest.headers['Authorization'] = 'Bearer $token';
-      debugPrint('🔑 Using token: $token');
-
-      // Add text fields
-      if (request.displayName != null) {
-        multipartRequest.fields['displayName'] = request.displayName!;
-        debugPrint('📝 Adding displayName: ${request.displayName}');
-      }
-      
-      if (request.phone != null) {
-        multipartRequest.fields['phone'] = request.phone!;
-        debugPrint('📱 Adding phone: ${request.phone}');
-      }
-      
-      if (request.bio != null) {
-        multipartRequest.fields['bio'] = request.bio!;
-        debugPrint('📄 Adding bio: ${request.bio}');
-      }
-      
-      if (request.gender != null) {
-        multipartRequest.fields['gender'] = request.gender!;
-        debugPrint('👤 Adding gender: ${request.gender}');
-      }
-      
-      if (request.birthday != null) {
-        multipartRequest.fields['birthday'] = request.birthday!;
-        debugPrint('🎂 Adding birthday: ${request.birthday}');
-      }
-      
-      if (request.location != null) {
-        multipartRequest.fields['location'] = request.location!;
-        debugPrint('📍 Adding location: ${request.location}');
-      }
-
-      // Add avatar file if provided
-      if (request.avatarPath != null && request.avatarPath!.isNotEmpty) {
-        final avatarFile = File(request.avatarPath!);
-        if (await avatarFile.exists()) {
-          final mimeType = _getMimeType(request.avatarPath!);
-          final avatarMultipart = await http.MultipartFile.fromPath(
-            'avatar',
-            request.avatarPath!,
-            contentType: MediaType.parse(mimeType),
-          );
-          multipartRequest.files.add(avatarMultipart);
-          debugPrint('🖼️ Adding avatar file: ${request.avatarPath}');
-        } else {
-          debugPrint('⚠️ Avatar file not found: ${request.avatarPath}');
-        }
-      }
-
-      // Add cover file if provided
-      if (request.coverPath != null && request.coverPath!.isNotEmpty) {
-        final coverFile = File(request.coverPath!);
-        if (await coverFile.exists()) {
-          final mimeType = _getMimeType(request.coverPath!);
-          final coverMultipart = await http.MultipartFile.fromPath(
-            'cover',
-            request.coverPath!,
-            contentType: MediaType.parse(mimeType),
-          );
-          multipartRequest.files.add(coverMultipart);
-          debugPrint('🖼️ Adding cover file: ${request.coverPath}');
-        } else {
-          debugPrint('⚠️ Cover file not found: ${request.coverPath}');
-        }
-      }
-
-      debugPrint('📤 Sending multipart request...');
-      final streamedResponse = await multipartRequest.send().timeout(
+      debugPrint('📤 Sending JSON request...');
+      final response = await http
+          .put(Uri.parse(endpoint), headers: headers, body: body)
+          .timeout(
         const Duration(seconds: 60),
         onTimeout: () {
           throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
         },
       );
-      
-      final response = await http.Response.fromStream(streamedResponse);
       debugPrint('📥 API response status: ${response.statusCode}');
       debugPrint('📄 API response body: ${response.body}');
 
@@ -620,9 +559,9 @@ class ProfileService {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         
         try {
-          final apiResponse = ApiResponse<Profile>.fromJson(
+          final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
             data,
-            (json) => Profile.fromJson(json as Map<String, dynamic>),
+            (json) => (json as Map<String, dynamic>),
           );
           
           if (apiResponse.result == 'SUCCESS') {
@@ -691,33 +630,18 @@ class ProfileService {
     }
   }
 
-  String _getMimeType(String path) {
-    final extension = path.toLowerCase().split('.').last;
-    switch (extension) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'gif':
-        return 'image/gif';
-      case 'webp':
-        return 'image/webp';
-      default:
-        return 'image/jpeg';
-    }
-  }
+  // Deprecated: file mime detection removed since uploads now use URLs only
 
   // ========== EDUCATION ==========
 
   Future<Map<String, dynamic>> addEducation(String token, EducationRequest request) async {
     final endpoint = '${Constants.baseUrl}/profiles/education';
-    return _executeMultipartRequest('POST', endpoint, token, request: request);
+    return _executeJsonRequest('POST', endpoint, token, request: request);
   }
 
   Future<Map<String, dynamic>> updateEducation(String token, int educationId, EducationRequest request) async {
     final endpoint = '${Constants.baseUrl}/profiles/education/$educationId';
-    return _executeMultipartRequest('PUT', endpoint, token, request: request);
+    return _executeJsonRequest('PUT', endpoint, token, request: request);
   }
 
   Future<Map<String, dynamic>> deleteEducation(String token, int educationId) async {
@@ -729,12 +653,12 @@ class ProfileService {
 
   Future<Map<String, dynamic>> addWorkExperience(String token, WorkExperienceRequest request) async {
     final endpoint = '${Constants.baseUrl}/profiles/work-experience';
-    return _executeMultipartRequest('POST', endpoint, token, workRequest: request);
+    return _executeJsonRequest('POST', endpoint, token, workRequest: request);
   }
 
   Future<Map<String, dynamic>> updateWorkExperience(String token, int workExperienceId, WorkExperienceRequest request) async {
     final endpoint = '${Constants.baseUrl}/profiles/work-experience/$workExperienceId';
-    return _executeMultipartRequest('PUT', endpoint, token, workRequest: request);
+    return _executeJsonRequest('PUT', endpoint, token, workRequest: request);
   }
 
   Future<Map<String, dynamic>> deleteWorkExperience(String token, int workExperienceId) async {
@@ -746,12 +670,12 @@ class ProfileService {
 
   Future<Map<String, dynamic>> addInterest(String token, InterestRequest request) async {
     final endpoint = '${Constants.baseUrl}/profiles/interest';
-    return _executeMultipartRequest('POST', endpoint, token, interestRequest: request);
+    return _executeJsonRequest('POST', endpoint, token, interestRequest: request);
   }
 
   Future<Map<String, dynamic>> updateInterest(String token, int interestId, InterestRequest request) async {
     final endpoint = '${Constants.baseUrl}/profiles/interest/$interestId';
-    return _executeMultipartRequest('PUT', endpoint, token, interestRequest: request);
+    return _executeJsonRequest('PUT', endpoint, token, interestRequest: request);
   }
 
   Future<Map<String, dynamic>> deleteInterest(String token, int interestId) async {
@@ -763,12 +687,12 @@ class ProfileService {
 
   Future<Map<String, dynamic>> addLocation(String token, LocationRequest request) async {
     final endpoint = '${Constants.baseUrl}/profiles/location';
-    return _executeMultipartRequest('POST', endpoint, token, locationRequest: request);
+    return _executeJsonRequest('POST', endpoint, token, locationRequest: request);
   }
 
   Future<Map<String, dynamic>> updateLocation(String token, int locationId, LocationRequest request) async {
     final endpoint = '${Constants.baseUrl}/profiles/location/$locationId';
-    return _executeMultipartRequest('PUT', endpoint, token, locationRequest: request);
+    return _executeJsonRequest('PUT', endpoint, token, locationRequest: request);
   }
 
   Future<Map<String, dynamic>> deleteLocation(String token, int locationId) async {
@@ -778,7 +702,7 @@ class ProfileService {
 
   // ========== HELPER METHODS ==========
 
-  Future<Map<String, dynamic>> _executeMultipartRequest(
+  Future<Map<String, dynamic>> _executeJsonRequest(
     String method,
     String endpoint,
     String token, {
@@ -788,113 +712,72 @@ class ProfileService {
     LocationRequest? locationRequest,
   }) async {
     debugPrint('$method $endpoint');
-    
     try {
-      final uri = Uri.parse(endpoint);
-      final multipartRequest = http.MultipartRequest(method, uri);
-      multipartRequest.headers['Authorization'] = 'Bearer $token';
+      final headers = {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      };
 
-      String? imagePath;
-
-      // Add fields based on request type
+      Map<String, dynamic> body = {};
       if (request != null) {
-        // Education
-        if (request.startDate != null) {
-          multipartRequest.fields['startDate'] = request.startDate!;
-        }
-        if (request.endDate != null) {
-          multipartRequest.fields['endDate'] = request.endDate!;
-        }
-        if (request.isCurrent != null) {
-          multipartRequest.fields['isCurrent'] = request.isCurrent.toString();
-        }
-        if (request.description != null) {
-          multipartRequest.fields['description'] = request.description!;
-        }
-        imagePath = request.imagePath;
+        body = {
+          if (request.schoolName != null) 'schoolName': request.schoolName,
+          if (request.degree != null) 'degree': request.degree,
+          if (request.fieldOfStudy != null) 'fieldOfStudy': request.fieldOfStudy,
+          if (request.startDate != null) 'startDate': request.startDate,
+          if (request.endDate != null) 'endDate': request.endDate,
+          if (request.isCurrent != null) 'isCurrent': request.isCurrent,
+          if (request.description != null) 'description': request.description,
+          if (request.imageUrl != null) 'imageUrl': request.imageUrl,
+        };
       } else if (workRequest != null) {
-        // Work Experience
-        if (workRequest.startDate != null) {
-          multipartRequest.fields['startDate'] = workRequest.startDate!;
-        }
-        if (workRequest.endDate != null) {
-          multipartRequest.fields['endDate'] = workRequest.endDate!;
-        }
-        if (workRequest.isCurrent != null) {
-          multipartRequest.fields['isCurrent'] = workRequest.isCurrent.toString();
-        }
-        if (workRequest.description != null) {
-          multipartRequest.fields['description'] = workRequest.description!;
-        }
-        imagePath = workRequest.imagePath;
+        body = {
+          if (workRequest.companyName != null) 'companyName': workRequest.companyName,
+          if (workRequest.position != null) 'position': workRequest.position,
+          if (workRequest.location != null) 'location': workRequest.location,
+          if (workRequest.startDate != null) 'startDate': workRequest.startDate,
+          if (workRequest.endDate != null) 'endDate': workRequest.endDate,
+          if (workRequest.isCurrent != null) 'isCurrent': workRequest.isCurrent,
+          if (workRequest.description != null) 'description': workRequest.description,
+          if (workRequest.imageUrl != null) 'imageUrl': workRequest.imageUrl,
+        };
       } else if (interestRequest != null) {
-        // Interest
-        if (interestRequest.name != null) {
-          multipartRequest.fields['name'] = interestRequest.name!;
-        }
-        if (interestRequest.category != null) {
-          multipartRequest.fields['category'] = interestRequest.category!;
-        }
-        if (interestRequest.description != null) {
-          multipartRequest.fields['description'] = interestRequest.description!;
-        }
-        imagePath = interestRequest.imagePath;
+        body = {
+          if (interestRequest.name != null) 'name': interestRequest.name,
+          if (interestRequest.category != null) 'category': interestRequest.category,
+          if (interestRequest.description != null) 'description': interestRequest.description,
+          if (interestRequest.imageUrl != null) 'imageUrl': interestRequest.imageUrl,
+        };
       } else if (locationRequest != null) {
-        // Location
-        if (locationRequest.locationName != null) {
-          multipartRequest.fields['locationName'] = locationRequest.locationName!;
-        }
-        if (locationRequest.locationType != null) {
-          multipartRequest.fields['locationType'] = locationRequest.locationType!;
-        }
-        if (locationRequest.address != null) {
-          multipartRequest.fields['address'] = locationRequest.address!;
-        }
-        if (locationRequest.latitude != null) {
-          multipartRequest.fields['latitude'] = locationRequest.latitude.toString();
-        }
-        if (locationRequest.longitude != null) {
-          multipartRequest.fields['longitude'] = locationRequest.longitude.toString();
-        }
-        if (locationRequest.description != null) {
-          multipartRequest.fields['description'] = locationRequest.description!;
-        }
-        if (locationRequest.isCurrent != null) {
-          multipartRequest.fields['isCurrent'] = locationRequest.isCurrent.toString();
-        }
-        imagePath = locationRequest.imagePath;
+        body = {
+          if (locationRequest.locationName != null) 'locationName': locationRequest.locationName,
+          if (locationRequest.locationType != null) 'locationType': locationRequest.locationType,
+          if (locationRequest.address != null) 'address': locationRequest.address,
+          if (locationRequest.latitude != null) 'latitude': locationRequest.latitude,
+          if (locationRequest.longitude != null) 'longitude': locationRequest.longitude,
+          if (locationRequest.description != null) 'description': locationRequest.description,
+          if (locationRequest.isCurrent != null) 'isCurrent': locationRequest.isCurrent,
+          if (locationRequest.imageUrl != null) 'imageUrl': locationRequest.imageUrl,
+        };
       }
 
-      // Add image file if provided
-      if (imagePath != null && imagePath.isNotEmpty) {
-        final imageFile = File(imagePath);
-        if (await imageFile.exists()) {
-          final mimeType = _getMimeType(imagePath);
-          final imageMultipart = await http.MultipartFile.fromPath(
-            'image',
-            imagePath,
-            contentType: MediaType.parse(mimeType),
-          );
-          multipartRequest.files.add(imageMultipart);
-          debugPrint('🖼️ Adding image file: $imagePath');
-        }
+      http.Response response;
+      if (method == 'POST') {
+        response = await http
+            .post(Uri.parse(endpoint), headers: headers, body: jsonEncode(body))
+            .timeout(Constants.requestTimeout);
+      } else {
+        response = await http
+            .put(Uri.parse(endpoint), headers: headers, body: jsonEncode(body))
+            .timeout(Constants.requestTimeout);
       }
 
-      final streamedResponse = await multipartRequest.send().timeout(
-        const Duration(seconds: 60),
-        onTimeout: () {
-          throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
-        },
-      );
-      
-      final response = await http.Response.fromStream(streamedResponse);
       debugPrint('📥 Response status: ${response.statusCode}');
       debugPrint('📄 Response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         final apiResponse = ApiResponse.fromJson(data, (json) => json);
-        
         if (apiResponse.result == 'SUCCESS') {
           return {
             'success': true,
@@ -928,14 +811,12 @@ class ProfileService {
     } catch (e, stackTrace) {
       debugPrint('❌ Error: $e');
       debugPrint('📚 Stack trace: $stackTrace');
-      
       if (e is TimeoutException) {
         return {
           'success': false,
           'message': 'Không thể kết nối đến server. Vui lòng thử lại sau.',
         };
       }
-      
       return {
         'success': false,
         'message': 'Đã có lỗi xảy ra. Vui lòng thử lại.',

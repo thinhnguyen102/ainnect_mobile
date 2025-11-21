@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'providers/auth_provider.dart';
@@ -11,9 +12,17 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/change_password_screen.dart';
+import 'screens/home_screen.dart';
+import 'widgets/environment_banner.dart';
+import 'utils/server_config.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
+  
+  // Print environment info
+  print('🌍 Environment: ${ServerConfig.currentEnvironment}');
+  print('🔗 API URL: ${ServerConfig.baseUrl}');
   
   // Set timeago Vietnamese locale
   timeago.setLocaleMessages('vi', timeago.ViMessages());
@@ -57,6 +66,10 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
           fontFamily: 'SF Pro Display',
         ),
+        builder: (context, child) {
+          // Wrap with environment banner in non-production environments
+          return EnvironmentBanner(child: child ?? const SizedBox.shrink());
+        },
         home: const AuthWrapper(),
         routes: {
           '/login': (context) => const LoginScreen(),
@@ -144,7 +157,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
             return const MainScreen();
           case AuthState.unauthenticated:
           case AuthState.error:
-            return const LoginScreen();
+            return const HomeScreen(showGuestBanner: true);
         }
       },
     );

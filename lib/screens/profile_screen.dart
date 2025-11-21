@@ -13,7 +13,6 @@ import '../widgets/post_card.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_info_section.dart';
 import '../widgets/profile_action_button.dart';
-import '../widgets/bottom_nav_bar.dart';
 import '../widgets/comment_bottom_sheet.dart';
 import 'friends_list_screen.dart';
 import 'qr_scanner_screen.dart';
@@ -21,6 +20,8 @@ import 'chat_screen.dart';
 import 'education_list_screen.dart';
 import 'work_experience_list_screen.dart';
 import 'edit_profile_screen.dart';
+import 'interest_list_screen.dart';
+import 'location_list_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final int userId;
@@ -43,7 +44,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _currentPage = 0;
   bool _isCurrentUser = false;
   int _friendsCount = 0;
-  String? _authToken;
 
   @override
   void initState() {
@@ -314,24 +314,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _handleEditLocation() {
-    // TODO: Navigate to edit location screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Tính năng đang phát triển'),
-        backgroundColor: Colors.orange,
+  void _handleEditLocation() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LocationListScreen(),
       ),
     );
+
+    if (result == true && mounted) {
+      _loadProfile();
+    }
   }
 
-  void _handleEditInterest() {
-    // TODO: Navigate to edit interests screen
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Tính năng đang phát triển'),
-        backgroundColor: Colors.orange,
+  void _handleEditInterest() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const InterestListScreen(),
       ),
     );
+
+    if (result == true && mounted) {
+      _loadProfile();
+    }
   }
 
   Future<void> _handleLogout() async {

@@ -108,17 +108,21 @@ class _EducationListScreenState extends State<EducationListScreen> {
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(16),
-                        leading: education.imageUrl != null
-                            ? CircleAvatar(
-                                backgroundImage: NetworkImage(
-                                  UrlHelper.fixImageUrl(education.imageUrl!),
-                                ),
-                                radius: 28,
-                              )
-                            : const CircleAvatar(
+                        leading: Builder(
+                          builder: (context) {
+                            final imageUrl = UrlHelper.fixImageUrl(education.imageUrl);
+                            if (imageUrl == null) {
+                              return const CircleAvatar(
                                 child: Icon(Icons.school),
                                 radius: 28,
-                              ),
+                              );
+                            }
+                            return CircleAvatar(
+                              backgroundImage: NetworkImage(imageUrl),
+                              radius: 28,
+                            );
+                          },
+                        ),
                         title: Text(
                           education.schoolName,
                           style: const TextStyle(
@@ -160,3 +164,4 @@ class _EducationListScreenState extends State<EducationListScreen> {
     );
   }
 }
+

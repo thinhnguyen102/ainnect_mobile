@@ -127,7 +127,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 48),
-                  TextFormField(
+                  Semantics(
+                    label: 'Tên đăng nhập',
+                    textField: true,
+                    child: TextFormField(
+                      key: const Key('username_input'),
                     controller: _usernameController,
                     decoration: const InputDecoration(
                       labelText: 'Tên đăng nhập',
@@ -146,9 +150,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       }
                       return null;
                     },
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
+                  Semantics(
+                    label: 'Tên hiển thị',
+                    textField: true,
+                    child: TextFormField(
+                      key: const Key('display_name_input'),
                     controller: _displayNameController,
                     decoration: const InputDecoration(
                       labelText: 'Tên hiển thị',
@@ -167,9 +176,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       }
                       return null;
                     },
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
+                  Semantics(
+                    label: 'Email',
+                    textField: true,
+                    child: TextFormField(
+                      key: const Key('email_input'),
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
@@ -186,9 +200,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       }
                       return null;
                     },
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
+                  Semantics(
+                    label: 'Mật khẩu',
+                    textField: true,
+                    child: TextFormField(
+                      key: const Key('password_input'),
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
@@ -215,9 +234,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       }
                       return null;
                     },
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
+                  Semantics(
+                    label: 'Xác nhận mật khẩu',
+                    textField: true,
+                    child: TextFormField(
+                      key: const Key('confirm_password_input'),
                     controller: _confirmPasswordController,
                     obscureText: _obscureConfirmPassword,
                     decoration: InputDecoration(
@@ -244,11 +268,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       }
                       return null;
                     },
+                    ),
                   ),
                   const SizedBox(height: 32),
                   Consumer<AuthProvider>(
                     builder: (context, authProvider, child) {
-                      return ElevatedButton(
+                      return Semantics(
+                        label: 'Đăng ký',
+                        button: true,
+                        child: ElevatedButton(
+                          key: const Key('register_button'),
                         onPressed: authProvider.state == AuthState.loading
                             ? null
                             : _handleRegister,
@@ -275,12 +304,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                 ),
+                                ),
                               ),
                       );
                     },
                   ),
                   const SizedBox(height: 16),
-                  TextButton(
+                  Semantics(
+                    label: 'Đăng nhập ngay',
+                    button: true,
+                    child: TextButton(
+                      key: const Key('login_link'),
                     onPressed: () {
                       Navigator.pop(context);
                     },
@@ -289,6 +323,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: TextStyle(
                         color: Color(0xFF6366F1),
                         fontSize: 16,
+                        ),
                       ),
                     ),
                   ),

@@ -134,36 +134,38 @@ class _MediaPreviewState extends State<MediaPreview> {
       if (_isLocalFile) {
         // Local image file
         final file = File(widget.mediaUrl);
-        return Image.file(
-          file,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: Colors.grey[200],
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.broken_image_outlined,
-                      color: Colors.grey,
-                      size: 48,
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Không thể tải ảnh',
-                      style: TextStyle(
+        return SizedBox(
+          width: MediaQuery.of(context).size.width,
+          height: 200, // Set a finite height for preview
+          child: Image.file(
+            file,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Colors.grey[200],
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.broken_image_outlined,
                         color: Colors.grey,
-                        fontSize: 12,
+                        size: 48,
                       ),
-                    ),
-                  ],
+                      SizedBox(height: 8),
+                      Text(
+                        'Không thể tải ảnh',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       } else {
         // Network image
@@ -175,49 +177,78 @@ class _MediaPreviewState extends State<MediaPreview> {
           );
         }
 
-        return Image.network(
-          UrlHelper.fixImageUrl(widget.mediaUrl),
-          headers: snapshot.data,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!
-                    : null,
-                color: const Color(0xFF1E88E5),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: Colors.grey[200],
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.broken_image_outlined,
+        final resolvedUrl = UrlHelper.fixImageUrl(widget.mediaUrl);
+        if (resolvedUrl == null) {
+          return Container(
+            color: Colors.grey[200],
+            child: const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.grey,
+                    size: 48,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Không thể tải ảnh',
+                    style: TextStyle(
                       color: Colors.grey,
-                      size: 48,
+                      fontSize: 12,
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Không thể tải ảnh',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            );
-          },
+            ),
+          );
+        }
+
+        return SizedBox(
+          width: MediaQuery.of(context).size.width,
+          height: 200, // Set a finite height for preview
+          child: Image.network(
+            resolvedUrl,
+            headers: snapshot.data,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                      : null,
+                  color: const Color(0xFF1E88E5),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Colors.grey[200],
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.grey,
+                        size: 48,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Không thể tải ảnh',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         );
       }
     }
