@@ -25,7 +25,6 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
   bool _isLoading = false;
   bool _hasMore = true;
   int _currentPage = 0;
-  int _totalPages = 0;
 
   @override
   void initState() {
@@ -74,7 +73,6 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
         setState(() {
           _comments.addAll(response.comments);
           _currentPage++;
-          _totalPages = response.totalPages;
           _hasMore = response.hasNext;
           _isLoading = false;
         });
@@ -121,28 +119,45 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    // Clear input immediately for better UX
+    final submittedContent = content;
+    _commentController.clear();
+    _focusNode.unfocus();
+
     try {
-      final success = await _postService.addComment(
+      final newComment = await _postService.addComment(
         token,
         widget.post.id,
-        content,
+        submittedContent,
       );
 
-      if (success) {
-        _commentController.clear();
-        _focusNode.unfocus();
-        await _loadComments(refresh: true);
+      if (newComment != null && mounted) {
+        // Add the new comment to the top of the list immediately
+        setState(() {
+          _comments.insert(0, newComment);
+        });
+        
+        // Scroll to top to show the new comment
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Đã đăng bình luận'),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
+              duration: Duration(seconds: 1),
             ),
           );
         }
       } else {
+        // Restore the content if failed
+        _commentController.text = submittedContent;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -153,6 +168,8 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
         }
       }
     } catch (e) {
+      // Restore the content if error
+      _commentController.text = submittedContent;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -160,10 +177,6 @@ class _CommentBottomSheetState extends State<CommentBottomSheet> {
             backgroundColor: Colors.red,
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
       }
     }
   }

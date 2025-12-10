@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/profile.dart';
 import '../utils/url_helper.dart';
+import '../utils/date_formatter.dart';
+import '../models/badge.dart' as user_badge;
 
 class ProfileInfoSection extends StatelessWidget {
   final Profile profile;
@@ -106,6 +108,15 @@ class ProfileInfoSection extends StatelessWidget {
             ],
           ),
         ),
+
+        // Badges
+        if (profile.badges.isNotEmpty)
+          _buildSection(
+            'Huy hiệu',
+            profile.badges.map((badge) {
+              return _BadgeItem(badge: badge);
+            }).toList(),
+          ),
 
         // Work Experience
         if (profile.workExperiences.isNotEmpty || isCurrentUser)
@@ -294,5 +305,78 @@ class ProfileInfoSection extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _BadgeItem extends StatelessWidget {
+  final user_badge.Badge badge;
+
+  const _BadgeItem({required this.badge});
+
+  @override
+  Widget build(BuildContext context) {
+    final iconUrl = UrlHelper.fixImageUrl(badge.iconUrl);
+    final bgColor = _parseColor(badge.color) ?? Colors.blue.shade50;
+    final fgColor = _parseColor(badge.color, defaultColor: Colors.blue.shade800);
+    final awardedTime = badge.awardedAt ?? badge.createdAt;
+    
+    return ListTile(
+      leading: iconUrl != null
+          ? CircleAvatar(
+              backgroundImage: NetworkImage(iconUrl),
+              radius: 24,
+            )
+          : CircleAvatar(
+              backgroundColor: bgColor,
+              radius: 24,
+              child: Icon(Icons.emoji_events, color: fgColor, size: 20),
+            ),
+      title: Text(
+        badge.name,
+        style: TextStyle(
+          color: fgColor,
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+        ),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (badge.description != null && badge.description!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              badge.description!,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 13,
+              ),
+            ),
+          ],
+          if (awardedTime != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Đạt được: ${DateFormatter.formatDateTime(awardedTime)}',
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ],
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    );
+  }
+
+  Color? _parseColor(String? hex, {Color? defaultColor}) {
+    if (hex == null || hex.isEmpty) return defaultColor;
+    final cleaned = hex.replaceFirst('#', '');
+    if (cleaned.length == 6 || cleaned.length == 8) {
+      final value = int.tryParse(cleaned, radix: 16);
+      if (value != null) {
+        return Color(cleaned.length == 6 ? 0xFF000000 | value : value);
+      }
+    }
+    return defaultColor;
   }
 }

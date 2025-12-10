@@ -275,21 +275,54 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         print('   Content: ${post.content}');
         print('   Media count: ${post.media.length}');
         print('   Visibility: ${post.visibility}');
+        print('   Moderation Status: ${post.moderationStatus}');
         
-        // Bài viết đã được tạo thành công (có thể chưa có media)
-        final hasMedia = _selectedMedia.isNotEmpty;
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              hasMedia 
-                ? '📤 Bài viết đang được xử lý. Media sẽ xuất hiện sau ít phút!'
-                : '✅ Đăng bài viết thành công!',
+        // Check moderation status
+        if (post.moderationStatus == 'PENDING') {
+          // Post is pending moderation
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Bài viết đang chờ kiểm duyệt',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    post.moderationReason ?? 'Bài viết sẽ được hiển thị sau khi được duyệt',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFFF59E0B),
+              duration: const Duration(seconds: 6),
+              behavior: SnackBarBehavior.floating,
             ),
-            backgroundColor: hasMedia ? const Color(0xFF6366F1) : const Color(0xFF10B981),
-            duration: Duration(seconds: hasMedia ? 4 : 2),
-          ),
-        );
+          );
+        } else {
+          // Post approved
+          final hasMedia = _selectedMedia.isNotEmpty;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                hasMedia 
+                  ? '📤 Bài viết đang được xử lý. Media sẽ xuất hiện sau ít phút!'
+                  : '✅ Đăng bài viết thành công!',
+              ),
+              backgroundColor: hasMedia ? const Color(0xFF6366F1) : const Color(0xFF10B981),
+              duration: Duration(seconds: hasMedia ? 4 : 2),
+            ),
+          );
+        }
         
         // Quay về home screen ngay lập tức
         Navigator.pop(context, true);

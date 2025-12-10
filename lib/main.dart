@@ -8,10 +8,12 @@ import 'providers/messaging_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/friendship_provider.dart';
 import 'services/websocket_service.dart';
+import 'services/local_notification_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/change_password_screen.dart';
+import 'screens/forgot_password_screen.dart';
 import 'screens/home_screen.dart';
 import 'widgets/environment_banner.dart';
 import 'utils/server_config.dart';
@@ -23,6 +25,11 @@ Future<void> main() async {
   // Print environment info
   print('🌍 Environment: ${ServerConfig.currentEnvironment}');
   print('🔗 API URL: ${ServerConfig.baseUrl}');
+  
+  // Initialize local notifications
+  final notificationService = LocalNotificationService();
+  await notificationService.initialize();
+  await notificationService.requestPermission();
   
   // Set timeago Vietnamese locale
   timeago.setLocaleMessages('vi', timeago.ViMessages());
@@ -76,6 +83,7 @@ class MyApp extends StatelessWidget {
           '/register': (context) => const RegisterScreen(),
           '/home': (context) => const MainScreen(),
           '/change-password': (context) => const ChangePasswordScreen(),
+          '/forgot-password': (context) => const ForgotPasswordScreen(),
         },
       ),
     );

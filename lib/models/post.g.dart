@@ -24,6 +24,12 @@ Post _$PostFromJson(Map<String, dynamic> json) => Post(
       .toList(),
   createdAt: json['createdAt'] as String,
   updatedAt: json['updatedAt'] as String,
+  shareInfo: json['shareInfo'] == null
+      ? null
+      : ShareInfo.fromJson(json['shareInfo'] as Map<String, dynamic>),
+  sharedPost: json['sharedPost'] == null
+      ? null
+      : Post.fromJson(json['sharedPost'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$PostToJson(Post instance) => <String, dynamic>{
@@ -42,6 +48,8 @@ Map<String, dynamic> _$PostToJson(Post instance) => <String, dynamic>{
   'media': instance.media,
   'createdAt': instance.createdAt,
   'updatedAt': instance.updatedAt,
+  'shareInfo': instance.shareInfo,
+  'sharedPost': instance.sharedPost,
 };
 
 PostMedia _$PostMediaFromJson(Map<String, dynamic> json) => PostMedia(

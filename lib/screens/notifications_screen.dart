@@ -478,6 +478,8 @@ class _NotificationItem extends StatelessWidget {
       case NotificationType.groupInvite:
       case NotificationType.groupJoin:
         return Icons.group_add;
+      case NotificationType.postModeration:
+        return Icons.gavel;
       case NotificationType.system:
         return Icons.info;
     }
@@ -506,6 +508,8 @@ class _NotificationItem extends StatelessWidget {
       case NotificationType.groupInvite:
       case NotificationType.groupJoin:
         return const Color(0xFFEC4899);
+      case NotificationType.postModeration:
+        return const Color(0xFFF97316);
       case NotificationType.system:
         return const Color(0xFF6B7280);
     }

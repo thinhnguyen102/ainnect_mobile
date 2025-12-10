@@ -1,11 +1,4 @@
-import 'package:json_annotation/json_annotation.dart';
-
-part 'login_request.g.dart';
-
-@JsonSerializable()
-class LoginRequest {
-  final String usernameOrEmail;
-  final String password;
+class DeviceInfoRequest {
   final String? deviceId;
   final String? deviceName;
   final String? deviceType;
@@ -16,10 +9,10 @@ class LoginRequest {
   final String? appVersion;
   final String? userAgent;
   final String? location;
+  final bool? isTrusted;
+  final bool? isActive;
 
-  const LoginRequest({
-    required this.usernameOrEmail,
-    required this.password,
+  const DeviceInfoRequest({
     this.deviceId,
     this.deviceName,
     this.deviceType,
@@ -30,11 +23,25 @@ class LoginRequest {
     this.appVersion,
     this.userAgent,
     this.location,
+    this.isTrusted,
+    this.isActive,
   });
 
-  factory LoginRequest.fromJson(Map<String, dynamic> json) => _$LoginRequestFromJson(json);
   Map<String, dynamic> toJson() {
-    final data = _$LoginRequestToJson(this);
+    final data = <String, dynamic>{
+      'deviceId': deviceId,
+      'deviceName': deviceName,
+      'deviceType': deviceType,
+      'osName': osName,
+      'osVersion': osVersion,
+      'browserName': browserName,
+      'browserVersion': browserVersion,
+      'appVersion': appVersion,
+      'userAgent': userAgent,
+      'location': location,
+      'isTrusted': isTrusted,
+      'isActive': isActive,
+    };
     data.removeWhere((key, value) => value == null);
     return data;
   }

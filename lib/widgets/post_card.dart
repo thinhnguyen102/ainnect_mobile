@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../utils/url_helper.dart';
+import '../utils/date_formatter.dart';
 import 'user_avatar.dart';
 import '../screens/profile_screen.dart';
 import 'media_gallery.dart';
@@ -112,6 +113,55 @@ class _PostCardState extends State<PostCard> {
     _removeReactionOverlay();
     super.dispose();
   }
+
+  Widget _buildModerationBadge() {
+    final status = widget.post.moderationStatus;
+    Color bgColor;
+    Color textColor;
+    IconData icon;
+    String label;
+
+    switch (status) {
+      case 'PENDING':
+        bgColor = const Color(0xFFFEF3C7);
+        textColor = const Color(0xFFD97706);
+        icon = Icons.schedule;
+        label = 'Chờ duyệt';
+        break;
+      case 'REJECTED':
+        bgColor = const Color(0xFFFEE2E2);
+        textColor = const Color(0xFFDC2626);
+        icon = Icons.block;
+        label = 'Bị từ chối';
+        break;
+      default:
+        return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: textColor),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -156,8 +206,12 @@ class _PostCardState extends State<PostCard> {
                       ],
                     ),
                     child: UserAvatar(
-                      avatarUrl: widget.post.authorAvatarUrl,
-                      displayName: widget.post.authorDisplayName,
+                      avatarUrl: widget.post.isShared 
+                          ? widget.post.originalPost.authorAvatarUrl 
+                          : widget.post.authorAvatarUrl,
+                      displayName: widget.post.isShared 
+                          ? widget.post.originalPost.authorDisplayName 
+                          : widget.post.authorDisplayName,
                     ),
                   ),
                 ),
@@ -176,7 +230,9 @@ class _PostCardState extends State<PostCard> {
                           );
                         },
                         child: Text(
-                          widget.post.authorDisplayName,
+                          widget.post.isShared 
+                              ? widget.post.originalPost.authorDisplayName 
+                              : widget.post.authorDisplayName,
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
@@ -188,7 +244,7 @@ class _PostCardState extends State<PostCard> {
                       Row(
                         children: [
                           Text(
-                            widget.post.createdAt,
+                            DateFormatter.formatRelativeTime(widget.post.createdAt),
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 13,
@@ -201,6 +257,12 @@ class _PostCardState extends State<PostCard> {
                             size: 14,
                             color: Colors.grey[500],
                           ),
+                          // Moderation status badge
+                          if (widget.post.moderationStatus != null && widget.post.moderationStatus != 'APPROVED')
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: _buildModerationBadge(),
+                            ),
                         ],
                       ),
                     ],
@@ -223,12 +285,68 @@ class _PostCardState extends State<PostCard> {
             ),
           ),
 
-          // Content
-          if (widget.post.content.isNotEmpty)
+          // Share Info Header (if this is a shared post)
+          if (widget.post.shareInfo != null)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.repeat, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProfileScreen(
+                                  userId: widget.post.shareInfo!.sharedByUserId,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            '${widget.post.shareInfo!.sharedByDisplayName} đã chia sẻ',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                        ),
+                        if (widget.post.shareInfo!.shareComment != null &&
+                            widget.post.shareInfo!.shareComment!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.post.shareInfo!.shareComment!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Content (show original post content if shared)
+          if ((widget.post.isShared ? widget.post.originalPost.content : widget.post.content).isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: Text(
-                widget.post.content,
+                widget.post.isShared ? widget.post.originalPost.content : widget.post.content,
                 style: const TextStyle(
                   fontSize: 15,
                   height: 1.5,
@@ -237,13 +355,17 @@ class _PostCardState extends State<PostCard> {
               ),
             ),
 
-          // Media
-          if (widget.post.media.isNotEmpty)
+          // Media (show original post media if shared)
+          if ((widget.post.isShared ? widget.post.originalPost.media : widget.post.media).isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: MediaGallery(media: widget.post.media),
+                child: MediaGallery(
+                  media: widget.post.isShared 
+                      ? widget.post.originalPost.media 
+                      : widget.post.media,
+                ),
               ),
             ),
 

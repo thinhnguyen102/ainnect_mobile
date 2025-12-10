@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/profile.dart';
 import '../models/post.dart';
+import '../models/share_post_request.dart';
 import '../models/messaging_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/friendship_provider.dart';
@@ -461,7 +462,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    final success = await _postService.sharePost(token, post.id);
+    final shareRequest = await _showShareDialog(post);
+    if (shareRequest == null) return;
+
+    final success = await _postService.sharePost(token, post.id, shareRequest);
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -479,6 +483,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
     }
+  }
+
+  Future<SharePostRequest?> _showShareDialog(Post post) async {
+    final commentController = TextEditingController();
+    String? selectedVisibility = 'public_';
+
+    return showDialog<SharePostRequest>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Chia sẻ bài viết'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: commentController,
+                decoration: const InputDecoration(
+                  labelText: 'Thêm suy nghĩ của bạn (tùy chọn)',
+                  hintText: 'Viết gì đó về bài viết này...',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                maxLength: 10000,
+              ),
+              const SizedBox(height: 16),
+              const Text('Quyền riêng tư:'),
+              RadioListTile<String>(
+                title: const Text('Công khai'),
+                value: 'public_',
+                groupValue: selectedVisibility,
+                onChanged: (value) => setState(() => selectedVisibility = value),
+              ),
+              RadioListTile<String>(
+                title: const Text('Bạn bè'),
+                value: 'friends',
+                groupValue: selectedVisibility,
+                onChanged: (value) => setState(() => selectedVisibility = value),
+              ),
+              RadioListTile<String>(
+                title: const Text('Chỉ mình tôi'),
+                value: 'private',
+                groupValue: selectedVisibility,
+                onChanged: (value) => setState(() => selectedVisibility = value),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(
+                context,
+                SharePostRequest(
+                  comment: commentController.text.trim().isEmpty 
+                      ? null 
+                      : commentController.text.trim(),
+                  visibility: selectedVisibility,
+                ),
+              );
+            },
+            child: const Text('Chia sẻ'),
+          ),
+        ],
+      ),
+    );
   }
 
   Post _convertToPost(ProfilePost post) {

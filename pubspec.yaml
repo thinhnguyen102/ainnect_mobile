@@ -71,6 +71,12 @@ dependencies:
   url_launcher: ^6.3.1
   minio: ^3.5.8
   flutter_dotenv: ^5.1.0
+  device_info_plus: ^9.1.1
+  package_info_plus: ^8.0.2
+  
+  # Local notifications
+  flutter_local_notifications: ^17.2.3
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:

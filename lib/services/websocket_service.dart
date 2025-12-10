@@ -21,10 +21,23 @@ class WebSocketService {
   final _notificationStreamController = StreamController<Map<String, dynamic>>.broadcast();
   final _connectionStateController = StreamController<bool>.broadcast();
   
+  // Post update streams
+  final _postUpdateStreamController = StreamController<Map<String, dynamic>>.broadcast();
+  final _feedUpdateStreamController = StreamController<Map<String, dynamic>>.broadcast();
+  final _personalPostUpdateStreamController = StreamController<Map<String, dynamic>>.broadcast();
+  
+  // Map to track post subscriptions: postId -> subscription
+  final Map<int, dynamic> _postSubscriptions = {};
+  
   Stream<WebSocketMessage> get messageStream => _messageStreamController.stream;
   Stream<TypingRequest> get typingStream => _typingStreamController.stream;
   Stream<Map<String, dynamic>> get notificationStream => _notificationStreamController.stream;
   Stream<bool> get connectionStateStream => _connectionStateController.stream;
+  
+  // Post update streams
+  Stream<Map<String, dynamic>> get postUpdateStream => _postUpdateStreamController.stream;
+  Stream<Map<String, dynamic>> get feedUpdateStream => _feedUpdateStreamController.stream;
+  Stream<Map<String, dynamic>> get personalPostUpdateStream => _personalPostUpdateStreamController.stream;
   
   bool get isConnected => _isConnected;
 
@@ -188,6 +201,16 @@ class WebSocketService {
       print('✅ StompClient activation initiated');
       Logger.debug('✅ StompClient activation initiated');
       
+      // Add timeout to detect connection issues
+      Future.delayed(const Duration(seconds: 10), () {
+        if (!_isConnected) {
+          print('⚠️ WARNING: WebSocket connection timeout after 10 seconds');
+          print('⚠️ Connection state: $_isConnected');
+          print('⚠️ STOMP client active: ${_stompClient?.connected}');
+          Logger.error('⚠️ WebSocket connection timeout - backend may not be responding');
+        }
+      });
+      
     } catch (e, stackTrace) {
       print('❌ EXCEPTION in connect(): $e');
       print('Stack trace: $stackTrace');
@@ -303,6 +326,42 @@ class WebSocketService {
     );
     
     Logger.debug('✅ Subscribed to /user/queue/notifications');
+    
+    // Subscribe to post updates queue
+    Logger.debug('📮 Subscribing to /user/queue/post-updates');
+    _stompClient!.subscribe(
+      destination: '/user/queue/post-updates',
+      callback: (StompFrame frame) {
+        if (frame.body != null) {
+          try {
+            final data = jsonDecode(frame.body!);
+            Logger.debug('📮 Received post update: ${data['type']}');
+            _personalPostUpdateStreamController.add(data);
+          } catch (e) {
+            Logger.error('Error parsing post update: $e');
+          }
+        }
+      },
+    );
+    Logger.debug('✅ Subscribed to /user/queue/post-updates');
+    
+    // Subscribe to feed updates
+    Logger.debug('📰 Subscribing to /topic/feed');
+    _stompClient!.subscribe(
+      destination: '/topic/feed',
+      callback: (StompFrame frame) {
+        if (frame.body != null) {
+          try {
+            final data = jsonDecode(frame.body!);
+            Logger.debug('📰 Received feed update: ${data['type']}');
+            _feedUpdateStreamController.add(data);
+          } catch (e) {
+            Logger.error('Error parsing feed update: $e');
+          }
+        }
+      },
+    );
+    Logger.debug('✅ Subscribed to /topic/feed');
     
     // Subscribe to error queue
     Logger.debug('❌ Subscribing to /user/queue/errors');
@@ -489,6 +548,76 @@ class WebSocketService {
     // Note: stomp_dart_client doesn't provide easy unsubscribe by destination
     // In a production app, you'd want to track subscription IDs
     Logger.debug('Unsubscribed from conversation: $conversationId');
+  }
+
+  /// Subscribe to updates for a specific post
+  void subscribeToPost(int postId) {
+    if (_stompClient == null || !_isConnected) {
+      Logger.error('❌ Cannot subscribe to post: WebSocket not connected (client=${_stompClient != null}, connected=$_isConnected)');
+      print('❌ Cannot subscribe to post $postId: WebSocket not connected');
+      return;
+    }
+
+    // Check if already subscribed
+    if (_postSubscriptions.containsKey(postId)) {
+      Logger.debug('⚠️ Already subscribed to post: $postId');
+      return;
+    }
+
+    final destination = '/topic/posts/$postId';
+    Logger.debug('📮 Subscribing to $destination');
+    print('📮 Subscribing to $destination');
+    
+    final subscription = _stompClient!.subscribe(
+      destination: destination,
+      callback: (StompFrame frame) {
+        print('📥 ✨ RECEIVED UPDATE on $destination');
+        print('  Frame body: ${frame.body}');
+        if (frame.body != null) {
+          try {
+            final data = jsonDecode(frame.body!) as Map<String, dynamic>;
+            Logger.debug('📮 Received post update for post $postId: ${data['type']}');
+            print('📮 Post update: type=${data['type']}, data=${data['data']}');
+            
+            final updateData = <String, dynamic>{
+              'postId': postId,
+              ...data,
+            };
+            
+            print('📮 Adding to postUpdateStreamController: $updateData');
+            _postUpdateStreamController.add(updateData);
+            print('✅ Added to stream successfully');
+          } catch (e, stackTrace) {
+            Logger.error('Error parsing post update: $e');
+            print('❌ Error parsing post update: $e');
+            print('Stack trace: $stackTrace');
+          }
+        }
+      },
+    );
+    
+    _postSubscriptions[postId] = subscription;
+    Logger.debug('✅ Subscribed to post $postId (total subscriptions: ${_postSubscriptions.length})');
+    print('✅ Subscribed to post $postId (total: ${_postSubscriptions.length})');
+  }
+
+  /// Unsubscribe from updates for a specific post
+  void unsubscribeFromPost(int postId) {
+    final subscription = _postSubscriptions[postId];
+    if (subscription != null) {
+      subscription.cancel();
+      _postSubscriptions.remove(postId);
+      Logger.debug('✅ Unsubscribed from post $postId');
+    }
+  }
+
+  /// Unsubscribe from all posts
+  void unsubscribeFromAllPosts() {
+    for (final entry in _postSubscriptions.entries) {
+      entry.value.cancel();
+    }
+    _postSubscriptions.clear();
+    Logger.debug('✅ Unsubscribed from all posts');
   }
 
   void subscribeToUserPosts(int userId) {
@@ -723,9 +852,13 @@ class WebSocketService {
 
   void dispose() {
     disconnect();
+    unsubscribeFromAllPosts();
     _messageStreamController.close();
     _typingStreamController.close();
     _notificationStreamController.close();
     _connectionStateController.close();
+    _postUpdateStreamController.close();
+    _feedUpdateStreamController.close();
+    _personalPostUpdateStreamController.close();
   }
 }

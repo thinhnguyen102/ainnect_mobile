@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../models/auth_response.dart';
 import '../models/login_request.dart';
 import '../models/register_request.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import '../utils/device_info_helper.dart';
 
 enum AuthState {
   initial,
@@ -32,33 +32,48 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> checkAuthStatus() async {
+    print('🔐 AuthProvider: checkAuthStatus called');
     _setState(AuthState.loading);
     
     try {
+      print('🔐 AuthProvider: Getting stored token...');
       final token = await _authService.getStoredToken();
+      print('🔐 AuthProvider: Token result: ${token != null ? "Found (${token.substring(0, 20)}...)" : "NULL"}');
+      
       if (token != null) {
         // Validate token with backend
+        print('🔐 AuthProvider: Validating token with backend...');
         final isValid = await _authService.validateToken();
+        print('🔐 AuthProvider: Token validation result: $isValid');
         
         if (isValid) {
           // Token valid, get user info
+          print('🔐 AuthProvider: Getting current user info...');
           final user = await _authService.getCurrentUser();
+          print('🔐 AuthProvider: User result: ${user != null ? "Found (${user.username})" : "NULL"}');
+          
           if (user != null) {
             _user = user;
+            print('🔐 AuthProvider: Setting state to AUTHENTICATED');
             _setState(AuthState.authenticated);
           } else {
+            print('🔐 AuthProvider: User is null, logging out...');
             await _authService.logout();
             _setState(AuthState.unauthenticated);
           }
         } else {
           // Token invalid, logout
+          print('🔐 AuthProvider: Token invalid, logging out...');
           await _authService.logout();
           _setState(AuthState.unauthenticated);
         }
       } else {
+        print('🔐 AuthProvider: No token found, setting unauthenticated');
         _setState(AuthState.unauthenticated);
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('🔐 AuthProvider: ERROR in checkAuthStatus: $e');
+      print('🔐 AuthProvider: Stack trace: $stackTrace');
       _setError('Failed to check authentication status: $e');
     }
   }
@@ -67,7 +82,21 @@ class AuthProvider extends ChangeNotifier {
     _setState(AuthState.loading);
     
     try {
-      final loginRequest = LoginRequest(usernameOrEmail: email, password: password);
+      final deviceInfo = await DeviceInfoHelper.buildDeviceInfo();
+      final loginRequest = LoginRequest(
+        usernameOrEmail: email,
+        password: password,
+        deviceId: deviceInfo.deviceId,
+        deviceName: deviceInfo.deviceName,
+        deviceType: deviceInfo.deviceType,
+        osName: deviceInfo.osName,
+        osVersion: deviceInfo.osVersion,
+        browserName: deviceInfo.browserName,
+        browserVersion: deviceInfo.browserVersion,
+        appVersion: deviceInfo.appVersion,
+        userAgent: deviceInfo.userAgent,
+        location: deviceInfo.location,
+      );
       final response = await _authService.login(loginRequest);
       
       print('🔐 Login response - status: ${response.status}, isSuccess: ${response.isSuccess}');
@@ -169,9 +198,11 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _setState(AuthState newState) {
+    print('🔐 AuthProvider: _setState called - changing from $_state to $newState');
     _state = newState;
     _errorMessage = null;
     notifyListeners();
+    print('🔐 AuthProvider: State changed to $newState, listeners notified');
   }
 
   void _setError(String message) {

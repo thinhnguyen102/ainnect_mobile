@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import '../models/profile.dart';
+import '../models/user.dart';
 import '../models/api_response.dart';
 import '../models/update_profile_request.dart';
 import '../models/education_request.dart';
@@ -13,6 +14,67 @@ import '../utils/constants.dart';
 import '../utils/logger.dart';
 
 class ProfileService {
+  Future<User?> getUserProfile(String token, {int? userId}) async {
+    final endpoint = userId != null 
+        ? '${Constants.baseUrl}/users/$userId'
+        : '${Constants.baseUrl}/users/profile';
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    
+    Logger.debug('Fetching user profile from: $endpoint');
+    Logger.request('GET', endpoint, headers: headers);
+    
+    try {
+      final response = await http.get(
+        Uri.parse(endpoint),
+        headers: headers,
+      ).timeout(
+        Constants.requestTimeout,
+        onTimeout: () {
+          throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
+        },
+      );
+
+      Logger.response('GET', endpoint, response.statusCode, 
+        body: response.body,
+        headers: response.headers
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        debugPrint('✅ User profile API request successful');
+        debugPrint('🔄 Parsing user data: $data');
+        
+        try {
+          final user = User.fromJson(data);
+          debugPrint('🎉 Successfully parsed user data with ${user.badges?.length ?? 0} badges');
+          return user;
+        } catch (parseError, parseStack) {
+          debugPrint('❌ Error parsing user response: $parseError');
+          debugPrint('📚 Parse error stack trace: $parseStack');
+          return null;
+        }
+      }
+      
+      debugPrint('❌ User profile API request failed with status: ${response.statusCode}');
+      Logger.error(
+        'Failed to fetch user profile',
+        error: 'Status code: ${response.statusCode}, Body: ${response.body}',
+      );
+      return null;
+    } catch (e, stackTrace) {
+      Logger.networkError('GET', endpoint, e);
+      Logger.error(
+        'Error fetching user profile',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
+  }
+
   Future<Profile?> getProfile(String token, int userId, {int page = 0, int size = 10}) async {
     final endpoint = '${Constants.baseUrl}/profiles/$userId?page=$page&size=$size';
     final headers = {

@@ -1,5 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'post.dart';
+import 'badge.dart';
 
 part 'profile.g.dart';
 
@@ -20,6 +21,7 @@ class Profile {
   final List<WorkExperience> workExperiences;
   final List<Interest> interests;
   final List<UserLocation> locations;
+  final List<Badge> badges;
   final PostsResponse posts;
   final bool private;
   final bool verified;
@@ -40,6 +42,7 @@ class Profile {
     required this.workExperiences,
     required this.interests,
     required this.locations,
+    required this.badges,
     required this.posts,
     required this.private,
     required this.verified,
@@ -68,6 +71,7 @@ class Profile {
       workExperiences: workExperiences,
       interests: interests,
       locations: locations,
+      badges: badges,
       posts: posts ?? this.posts,
       private: private,
       verified: verified,

@@ -34,6 +34,9 @@ Profile _$ProfileFromJson(Map<String, dynamic> json) => Profile(
   locations: (json['locations'] as List<dynamic>)
       .map((e) => UserLocation.fromJson(e as Map<String, dynamic>))
       .toList(),
+  badges: (json['badges'] as List<dynamic>? ?? [])
+      .map((e) => Badge.fromJson(e as Map<String, dynamic>))
+      .toList(),
   posts: PostsResponse.fromJson(json['posts'] as Map<String, dynamic>),
   private: json['private'] as bool,
   verified: json['verified'] as bool,
@@ -55,6 +58,7 @@ Map<String, dynamic> _$ProfileToJson(Profile instance) => <String, dynamic>{
   'workExperiences': instance.workExperiences,
   'interests': instance.interests,
   'locations': instance.locations,
+  'badges': instance.badges,
   'posts': instance.posts,
   'private': instance.private,
   'verified': instance.verified,

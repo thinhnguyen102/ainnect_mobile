@@ -74,6 +74,7 @@ const _$NotificationTypeEnumMap = {
   NotificationType.groupInvite: 'GROUP_INVITE',
   NotificationType.groupJoin: 'GROUP_JOIN',
   NotificationType.system: 'SYSTEM',
+  NotificationType.postModeration: 'POST_MODERATION',
 };
 
 NotificationStatsDto _$NotificationStatsDtoFromJson(

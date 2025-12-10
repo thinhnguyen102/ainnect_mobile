@@ -83,22 +83,56 @@ class CommentService {
       debugPrint('📄 Response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        final apiResponse = ApiResponse<Comment>.fromJson(
-          data,
-          (json) => Comment.fromJson(json as Map<String, dynamic>),
-        );
+        try {
+          final responseBody = utf8.decode(response.bodyBytes);
+          debugPrint('📄 Decoded response body: $responseBody');
+          
+          // Try to parse as JSON
+          final data = jsonDecode(responseBody);
+          debugPrint('📦 Parsed data type: ${data.runtimeType}');
+          
+          // If response is just an ID (int), it means success but no full object returned
+          if (data is int) {
+            debugPrint('✅ Reply created with ID: $data');
+            return {
+              'success': true,
+              'message': 'Trả lời thành công',
+              'commentId': data,
+            };
+          }
+          
+          // If response is a Map, parse as ApiResponse
+          if (data is Map<String, dynamic>) {
+            final apiResponse = ApiResponse<Comment>.fromJson(
+              data,
+              (json) => Comment.fromJson(json as Map<String, dynamic>),
+            );
 
-        if (apiResponse.result == 'SUCCESS') {
-          return {
-            'success': true,
-            'message': apiResponse.message ?? 'Trả lời thành công',
-            'comment': apiResponse.data,
-          };
-        } else {
+            if (apiResponse.result == 'SUCCESS') {
+              return {
+                'success': true,
+                'message': apiResponse.message ?? 'Trả lời thành công',
+                'comment': apiResponse.data,
+              };
+            } else {
+              return {
+                'success': false,
+                'message': apiResponse.message ?? 'Trả lời thất bại',
+              };
+            }
+          }
+          
+          // Unknown response format
           return {
             'success': false,
-            'message': apiResponse.message ?? 'Trả lời thất bại',
+            'message': 'Định dạng response không hợp lệ',
+          };
+        } catch (e, stackTrace) {
+          debugPrint('❌ Error parsing response: $e');
+          debugPrint('📚 Stack trace: $stackTrace');
+          return {
+            'success': false,
+            'message': 'Lỗi parse response: $e',
           };
         }
       } else if (response.statusCode == 401) {

@@ -6,6 +6,7 @@ import '../models/auth_response.dart';
 import '../models/login_request.dart';
 import '../models/register_request.dart';
 import '../models/user.dart';
+import '../models/forgot_password_request.dart';
 import '../utils/constants.dart';
 import '../utils/logger.dart';
 
@@ -215,9 +216,14 @@ class AuthService {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final user = User.fromJson(data['user']);
-        Logger.debug('Successfully fetched user info: ${user.displayName}');
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        User user;
+        if (data['user'] != null) {
+          user = User.fromJson(data['user']);
+        } else {
+          user = User.fromJson(data);
+        }
+        Logger.debug('Successfully fetched user info: ${user.displayName} with ${user.badges?.length ?? 0} badges');
         return user;
       } else {
         Logger.error(
@@ -423,6 +429,110 @@ class AuthService {
     } catch (e) {
       Logger.networkError('POST', '${Constants.baseUrl}/auth/logout', e);
       return false;
+    }
+  }
+
+  // Forgot Password Methods
+  Future<ForgotPasswordResponse> requestPasswordReset(String email) async {
+    final endpoint = '${Constants.baseUrl}/auth/password-reset/request';
+    Logger.debug('Requesting password reset for email: $email');
+    
+    try {
+      final response = await http.post(
+        Uri.parse(endpoint),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email.trim().toLowerCase()}),
+      ).timeout(
+        Constants.requestTimeout,
+        onTimeout: () {
+          throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
+        },
+      );
+
+      Logger.response('POST', endpoint, response.statusCode, body: response.body);
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200) {
+        final responseData = data['data'] as Map<String, dynamic>;
+        return ForgotPasswordResponse.fromJson(responseData);
+      } else {
+        throw Exception(data['message'] ?? 'Không thể gửi mã OTP');
+      }
+    } catch (e, stackTrace) {
+      Logger.error('Error requesting password reset', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<VerifyOtpResponse> verifyOtp(String email, String otpCode) async {
+    final endpoint = '${Constants.baseUrl}/auth/password-reset/verify-otp';
+    Logger.debug('Verifying OTP for email: $email');
+    
+    try {
+      final response = await http.post(
+        Uri.parse(endpoint),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim().toLowerCase(),
+          'otpCode': otpCode.trim(),
+        }),
+      ).timeout(
+        Constants.requestTimeout,
+        onTimeout: () {
+          throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
+        },
+      );
+
+      Logger.response('POST', endpoint, response.statusCode, body: response.body);
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200) {
+        final responseData = data['data'] as Map<String, dynamic>;
+        return VerifyOtpResponse.fromJson(responseData);
+      } else {
+        throw Exception(data['message'] ?? 'Mã OTP không hợp lệ');
+      }
+    } catch (e, stackTrace) {
+      Logger.error('Error verifying OTP', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<ResetPasswordResponse> resetPassword(String email, String otpCode, String newPassword) async {
+    final endpoint = '${Constants.baseUrl}/auth/password-reset/reset';
+    Logger.debug('Resetting password for email: $email');
+    
+    try {
+      final response = await http.post(
+        Uri.parse(endpoint),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim().toLowerCase(),
+          'otpCode': otpCode.trim(),
+          'newPassword': newPassword,
+        }),
+      ).timeout(
+        Constants.requestTimeout,
+        onTimeout: () {
+          throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
+        },
+      );
+
+      Logger.response('POST', endpoint, response.statusCode, body: response.body);
+
+      final data = jsonDecode(response.body);
+      
+      if (response.statusCode == 200) {
+        final responseData = data['data'] as Map<String, dynamic>;
+        return ResetPasswordResponse.fromJson(responseData);
+      } else {
+        throw Exception(data['message'] ?? 'Không thể đặt lại mật khẩu');
+      }
+    } catch (e, stackTrace) {
+      Logger.error('Error resetting password', error: e, stackTrace: stackTrace);
+      rethrow;
     }
   }
 }

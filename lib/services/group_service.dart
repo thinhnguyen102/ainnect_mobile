@@ -6,6 +6,7 @@ import '../utils/constants.dart';
 import '../utils/logger.dart';
 import '../models/api_response.dart';
 import '../models/group.dart';
+import 'media_upload_service.dart';
 
 class GroupService {
   Future<Group?> createGroup({
@@ -17,29 +18,56 @@ class GroupService {
     required String token,
   }) async {
     final endpoint = '${Constants.baseUrl}/groups'; 
-    final request = http.MultipartRequest('POST', Uri.parse(endpoint));
-
-    request.fields['name'] = name;
-    request.fields['description'] = description;
-    request.fields['visibility'] = visibility;
-    request.fields['joinQuestions'] = jsonEncode(joinQuestions);
-
+    
+    // Upload cover image to Cloudflare first if provided
+    String? coverUrl;
     if (coverImage != null) {
-      request.files.add(await http.MultipartFile.fromPath('coverImage', coverImage.path));
+      try {
+        Logger.debug('Uploading cover image to Cloudflare...');
+        final uploadService = MediaUploadService();
+        if (!uploadService.isAvailable) {
+          throw Exception(uploadService.errorMessage ?? 'Cloudflare R2 chưa được cấu hình');
+        }
+        
+        // Generate unique key for group cover
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final fileName = coverImage.path.split('/').last;
+        final key = 'groups/covers/${timestamp}_$fileName';
+        
+        coverUrl = await uploadService.uploadFile(coverImage, key: key);
+        Logger.debug('Cover image uploaded successfully: $coverUrl');
+      } catch (e) {
+        Logger.error('Failed to upload cover image: $e');
+        rethrow;
+      }
     }
 
-    request.headers['Authorization'] = 'Bearer $token'; 
+    // Create JSON request body
+    final requestBody = {
+      'name': name,
+      'description': description,
+      'visibility': visibility,
+      'joinQuestions': joinQuestions,
+      if (coverUrl != null) 'coverUrl': coverUrl,
+    };
 
     Logger.debug('Creating group with name: $name');
+    Logger.request('POST', endpoint, headers: {'Authorization': 'Bearer $token'}, body: jsonEncode(requestBody));
 
     try {
-      final streamedResponse = await request.send().timeout(
+      final response = await http.post(
+        Uri.parse(endpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      ).timeout(
         Constants.requestTimeout,
         onTimeout: () {
           throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
         },
       );
-      final response = await http.Response.fromStream(streamedResponse);
 
       Logger.response('POST', endpoint, response.statusCode, body: response.body);
 
@@ -210,20 +238,56 @@ class GroupService {
   }) async {
     final endpoint = '${Constants.baseUrl}/posts/groups/$groupId';
 
-    try {
-      final request = http.MultipartRequest('POST', Uri.parse(endpoint));
-      request.headers['Authorization'] = 'Bearer $token';
-      request.fields['content'] = content;
-      request.fields['visibility'] = visibility; // Added visibility field
-
-      if (mediaFiles != null) {
+    // Upload media files to Cloudflare first if provided
+    List<String> mediaUrls = [];
+    if (mediaFiles != null && mediaFiles.isNotEmpty) {
+      try {
+        Logger.debug('Uploading ${mediaFiles.length} media files to Cloudflare...');
+        final uploadService = MediaUploadService();
+        if (!uploadService.isAvailable) {
+          throw Exception(uploadService.errorMessage ?? 'Cloudflare R2 chưa được cấu hình');
+        }
+        
         for (final filePath in mediaFiles) {
-          request.files.add(await http.MultipartFile.fromPath('mediaFiles', filePath));
+          final file = File(filePath);
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final fileName = filePath.split('/').last;
+          final key = 'posts/groups/$groupId/${timestamp}_$fileName';
+          
+          final url = await uploadService.uploadFile(file, key: key);
+          mediaUrls.add(url);
+          Logger.debug('Media uploaded successfully: $url');
+        }
+      } catch (e) {
+        Logger.error('Failed to upload media files: $e');
+        rethrow;
         }
       }
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+    // Create JSON request body
+    final requestBody = {
+      'content': content,
+      'visibility': visibility,
+      if (mediaUrls.isNotEmpty) 'mediaUrls': mediaUrls,
+    };
+
+    Logger.debug('Creating group post with content: $content');
+    Logger.request('POST', endpoint, headers: {'Authorization': 'Bearer $token'}, body: jsonEncode(requestBody));
+
+    try {
+      final response = await http.post(
+        Uri.parse(endpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(requestBody),
+      ).timeout(
+        Constants.requestTimeout,
+        onTimeout: () {
+          throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
+        },
+      );
 
       Logger.response('POST', endpoint, response.statusCode, body: response.body);
 
@@ -275,10 +339,10 @@ class GroupService {
     required int groupId,
     required String token,
   }) async {
-    final endpoint = '${Constants.baseUrl}/groups/$groupId/leave';
+    final endpoint = '${Constants.baseUrl}/groups/$groupId';
 
     try {
-      final response = await http.post(
+      final response = await http.delete(
         Uri.parse(endpoint),
         headers: {
           'Content-Type': 'application/json',

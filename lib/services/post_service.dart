@@ -5,6 +5,7 @@ import '../models/post.dart';
 import '../models/comment.dart';
 import '../models/page_response.dart';
 import '../models/create_post_request.dart';
+import '../models/share_post_request.dart';
 import '../utils/constants.dart';
 import '../utils/logger.dart';
 
@@ -125,6 +126,79 @@ class PostService {
       Logger.networkError('GET', endpoint, e);
       Logger.error(
         'Error fetching public feed',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return PageResponse<Post>(
+        content: [],
+        page: PageInfo(
+          size: size,
+          number: page,
+          totalElements: 0,
+          totalPages: 0,
+        ),
+      );
+    }
+  }
+
+  Future<PageResponse<Post>> getFeedWithShares(String token, {int page = 0, int size = 10}) async {
+    final endpoint = '${Constants.baseUrl}/posts/feed/with-shares?page=$page&size=$size';
+    final headers = {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+    
+    Logger.debug('Fetching feed with shares: page=$page, size=$size');
+    Logger.request('GET', endpoint, headers: headers);
+    
+    try {
+      final response = await http.get(
+        Uri.parse(endpoint),
+        headers: headers,
+      ).timeout(
+        Constants.requestTimeout,
+        onTimeout: () {
+          throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
+        },
+      );
+
+      Logger.response('GET', endpoint, response.statusCode, 
+        body: response.body,
+        headers: response.headers
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        Logger.debug('📦 Feed with shares response data keys: ${data.keys.toList()}');
+        Logger.debug('📦 Content length: ${data['content']?.length ?? 0}');
+        
+        final pageResponse = PageResponse<Post>.fromJson(
+          data,
+          (json) => Post.fromJson(json as Map<String, dynamic>),
+        );
+        
+        Logger.debug('✅ Parsed ${pageResponse.content.length} posts (including shares) successfully');
+        return pageResponse;
+      } else {
+        Logger.error('❌ Feed with shares failed with status ${response.statusCode}');
+        Logger.error(
+          'Failed to fetch feed with shares',
+          error: 'Status code: ${response.statusCode}, Body: ${response.body}',
+        );
+        return PageResponse<Post>(
+          content: [],
+          page: PageInfo(
+            size: size,
+            number: page,
+            totalElements: 0,
+            totalPages: 0,
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      Logger.networkError('GET', endpoint, e);
+      Logger.error(
+        'Error fetching feed with shares',
         error: e,
         stackTrace: stackTrace,
       );
@@ -469,7 +543,7 @@ class PostService {
     }
   }
 
-  Future<bool> addComment(String token, int postId, String content) async {
+  Future<Comment?> addComment(String token, int postId, String content) async {
     final endpoint = '${Constants.baseUrl}/posts/$postId/comments';
     Logger.debug('Adding comment to post: postId=$postId');
     
@@ -497,29 +571,32 @@ class PostService {
         response: response.body,
       );
 
-      final success = response.statusCode == 200 || response.statusCode == 201;
-      if (success) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         Logger.debug('Successfully added comment to post $postId');
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        // API might return the comment directly or wrapped in a response object
+        final commentJson = data['data'] ?? data;
+        return Comment.fromJson(commentJson as Map<String, dynamic>);
       } else {
         Logger.error(
           'Failed to add comment',
           error: 'Status code: ${response.statusCode}, Body: ${response.body}',
         );
+        return null;
       }
-      return success;
     } catch (e, stackTrace) {
       Logger.error(
         'Error adding comment',
         error: e,
         stackTrace: stackTrace,
       );
-      return false;
+      return null;
     }
   }
 
-  Future<bool> sharePost(String token, int postId, {String? comment}) async {
+  Future<bool> sharePost(String token, int postId, SharePostRequest request) async {
     final endpoint = '${Constants.baseUrl}/posts/$postId/shares';
-    Logger.debug('Sharing post: postId=$postId${comment != null ? ', with comment' : ''}');
+    Logger.debug('Sharing post: postId=$postId${request.comment != null ? ', with comment' : ''}');
     
     try {
       final response = await http.post(
@@ -528,9 +605,7 @@ class PostService {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          if (comment != null) 'comment': comment,
-        }),
+        body: jsonEncode(request.toJson()),
       ).timeout(
         Constants.requestTimeout,
         onTimeout: () {
@@ -558,6 +633,51 @@ class PostService {
     } catch (e, stackTrace) {
       Logger.error(
         'Error sharing post',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return false;
+    }
+  }
+
+  Future<bool> unsharePost(String token, int shareId) async {
+    final endpoint = '${Constants.baseUrl}/posts/shares/$shareId';
+    Logger.debug('Unsharing post: shareId=$shareId');
+    
+    try {
+      final response = await http.delete(
+        Uri.parse(endpoint),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(
+        Constants.requestTimeout,
+        onTimeout: () {
+          throw TimeoutException('Không thể kết nối đến server. Vui lòng thử lại sau.');
+        },
+      );
+
+      Logger.api(
+        'DELETE',
+        endpoint,
+        statusCode: response.statusCode,
+        response: response.body,
+      );
+
+      final success = response.statusCode == 200 || response.statusCode == 204;
+      if (success) {
+        Logger.debug('Successfully unshared post $shareId');
+      } else {
+        Logger.error(
+          'Failed to unshare post',
+          error: 'Status code: ${response.statusCode}, Body: ${response.body}',
+        );
+      }
+      return success;
+    } catch (e, stackTrace) {
+      Logger.error(
+        'Error unsharing post',
         error: e,
         stackTrace: stackTrace,
       );

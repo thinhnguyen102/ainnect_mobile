@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import '../services/group_service.dart';
+import '../services/media_upload_service.dart';
 import 'package:provider/provider.dart';
 import 'package:ainnect/providers/auth_provider.dart'; // Added import for AuthProvider
 import 'package:ainnect/models/post.dart'; // Import Post model
@@ -18,6 +21,13 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   Future<Map<String, dynamic>>? _groupFuture;
   Future<Map<String, dynamic>>? _postsFuture;
   bool _isInitialized = false;
+  
+  // For create post section
+  final TextEditingController _postController = TextEditingController();
+  final List<String> _selectedMedia = [];
+  final ImagePicker _imagePicker = ImagePicker();
+  final MediaUploadService _mediaUploadService = MediaUploadService();
+  bool _isCreatingPost = false;
 
   @override
   void didChangeDependencies() {
@@ -64,40 +74,144 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     );
   }
 
-  Widget _buildCreatePostSection() {
-    final TextEditingController _postController = TextEditingController();
-    final List<String> _selectedMedia = [];
-    String _visibility = 'public_';
-
-    void _pickMedia() async {
-      // Implement media picker logic here
+  Future<void> _pickMedia() async {
+    if (_selectedMedia.length >= 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bạn chỉ có thể đăng tối đa 6 ảnh/video'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
     }
 
-    void _createPost() async {
-      final authToken = await Provider.of<AuthProvider>(context, listen: false).token;
-      if (authToken != null) {
-        try {
-          await GroupService().createGroupPost(
+    if (!_mediaUploadService.isAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _mediaUploadService.errorMessage ??
+                'Tải lên Cloudflare R2 chưa được cấu hình.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show dialog to pick image or video
+    final mediaType = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Chọn loại media'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'image'),
+            child: const Text('Ảnh'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'video'),
+            child: const Text('Video'),
+          ),
+        ],
+      ),
+    );
+
+    if (mediaType == null) return;
+
+    XFile? picked;
+    if (mediaType == 'image') {
+      picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+    } else if (mediaType == 'video') {
+      picked = await _imagePicker.pickVideo(source: ImageSource.gallery);
+    }
+
+    if (picked == null) return;
+
+    setState(() {
+      _isCreatingPost = true;
+    });
+
+    try {
+      final file = File(picked.path);
+      final cdnUrl = await _mediaUploadService.uploadFile(file);
+      setState(() {
+        _selectedMedia.add(cdnUrl);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tải lên thành công!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi tải lên: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isCreatingPost = false;
+      });
+    }
+  }
+
+  Future<void> _createPost() async {
+    if (_postController.text.trim().isEmpty && _selectedMedia.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập nội dung hoặc chọn ảnh/video'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isCreatingPost = true;
+    });
+
+    final authToken = await Provider.of<AuthProvider>(context, listen: false).token;
+    if (authToken != null) {
+      try {
+        await GroupService().createGroupPost(
+          groupId: widget.groupId,
+          content: _postController.text.trim(),
+          visibility: 'group', // Always use group visibility for group posts
+          mediaFiles: _selectedMedia,
+          token: authToken,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đăng bài viết thành công!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _postController.clear();
+        _selectedMedia.clear();
+        setState(() {
+          _postsFuture = GroupService().fetchGroupPosts(
             groupId: widget.groupId,
-            content: _postController.text,
-            visibility: _visibility,
-            mediaFiles: _selectedMedia,
             token: authToken,
           );
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Đăng bài viết thành công!')),
-          );
-          _postController.clear();
-          setState(() {
-            _postsFuture = GroupService().fetchGroupPosts(groupId: widget.groupId, token: authToken);
-          });
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Không thể đăng bài viết: $e')),
-          );
-        }
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể đăng bài viết: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
+
+    setState(() {
+      _isCreatingPost = false;
+    });
+  }
+
+  Widget _buildCreatePostSection() {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -140,54 +254,70 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               contentPadding: const EdgeInsets.all(16),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          
+          // Media preview
+          if (_selectedMedia.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              height: 100,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _selectedMedia.length,
+                itemBuilder: (context, index) {
+                  return Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    width: 100,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      image: DecorationImage(
+                        image: NetworkImage(_selectedMedia[index]),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedMedia.removeAt(index);
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.black54,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          
           Row(
             children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F7FA),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: _visibility,
-                    underline: const SizedBox(),
-                    icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF6366F1)),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'public_',
-                        child: Row(
-                          children: [
-                            Icon(Icons.public, size: 18, color: Color(0xFF10B981)),
-                            SizedBox(width: 8),
-                            Text('Công khai'),
-                          ],
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 'private_',
-                        child: Row(
-                          children: [
-                            Icon(Icons.lock_outline, size: 18, color: Color(0xFFEF4444)),
-                            SizedBox(width: 8),
-                            Text('Riêng tư'),
-                          ],
-                        ),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        _visibility = value;
-                      }
-                    },
-                  ),
-                ),
+              // Add media button
+              IconButton(
+                onPressed: _isCreatingPost ? null : _pickMedia,
+                icon: const Icon(Icons.image, color: Color(0xFF6366F1)),
+                tooltip: 'Thêm ảnh/video',
               ),
-              const SizedBox(width: 12),
+              const Spacer(),
               ElevatedButton(
-                onPressed: _createPost,
+                onPressed: _isCreatingPost ? null : _createPost,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6366F1),
                   foregroundColor: Colors.white,
@@ -197,19 +327,28 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                   ),
                   elevation: 0,
                 ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.send, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      'Đăng',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
+                child: _isCreatingPost
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Row(
+                        children: [
+                          Icon(Icons.send, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'Đăng',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -432,7 +571,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
             );
           } else if (snapshot.hasData) {
             final group = snapshot.data!['data'];
-            final isMember = group['isMember'] ?? false;
+            final isMemberOrOwner = group['member'] == true || group['owner'] == true;
             
             return SingleChildScrollView(
               child: Column(
@@ -635,13 +774,14 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                   ),
                   
                   // Join/Leave Button
-                  if (!isMember)
+                  // Show "Rời nhóm" if user is member or owner
+                  if (!isMemberOrOwner)
                     _buildJoinGroupButton()
                   else
                     _buildLeaveGroupButton(),
                   
-                  // Create Post Section (only for members)
-                  if (isMember) ...[
+                  // Create Post Section (only for members or owners)
+                  if (isMemberOrOwner) ...[
                     const SizedBox(height: 8),
                     _buildCreatePostSection(),
                   ],

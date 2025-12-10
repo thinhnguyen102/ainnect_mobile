@@ -27,6 +27,8 @@ enum NotificationType {
   groupInvite,
   @JsonValue('GROUP_JOIN')
   groupJoin,
+  @JsonValue('POST_MODERATION')
+  postModeration,
   @JsonValue('SYSTEM')
   system,
 }
@@ -128,6 +130,8 @@ class NotificationResponse {
         return 'Lời mời nhóm';
       case NotificationType.groupJoin:
         return 'Tham gia nhóm';
+      case NotificationType.postModeration:
+        return 'Kiểm duyệt';
       case NotificationType.system:
         return 'Hệ thống';
     }

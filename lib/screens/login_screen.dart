@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/websocket_service.dart';
 import '../utils/server_config.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -60,6 +61,18 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else {
         if (!mounted) return;
+        
+        // Connect WebSocket after successful login
+        print('🔐 Login successful, connecting WebSocket...');
+        try {
+          final wsService = WebSocketService();
+          await wsService.connect();
+          print('🔐 WebSocket connection initiated');
+        } catch (e, stackTrace) {
+          print('🔐 Error connecting WebSocket: $e');
+          print('🔐 Stack trace: $stackTrace');
+        }
+        
         Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
       }
     }
@@ -281,7 +294,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/forgot-password');
+                      },
+                      child: const Text(
+                        'Quên mật khẩu?',
+                        style: TextStyle(
+                          color: Color(0xFF1E88E5),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                   Consumer<AuthProvider>(
                     builder: (context, authProvider, child) {
                       return Semantics(

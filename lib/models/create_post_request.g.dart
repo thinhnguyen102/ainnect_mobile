@@ -11,8 +11,8 @@ CreatePostRequest _$CreatePostRequestFromJson(Map<String, dynamic> json) =>
       content: json['content'] as String,
       visibility: json['visibility'] as String? ?? 'public_',
       groupId: (json['groupId'] as num?)?.toInt(),
-    mediaUrls:
-      (json['mediaUrls'] as List<dynamic>?)
+      mediaUrls:
+          (json['mediaUrls'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           const [],
@@ -23,5 +23,5 @@ Map<String, dynamic> _$CreatePostRequestToJson(CreatePostRequest instance) =>
       'content': instance.content,
       'visibility': instance.visibility,
       'groupId': instance.groupId,
-    'mediaUrls': instance.mediaUrls,
+      'mediaUrls': instance.mediaUrls,
     };

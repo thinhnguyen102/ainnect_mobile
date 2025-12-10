@@ -40,7 +40,7 @@ class _MainScreenState extends State<MainScreen> {
     // Listen to new messages
     _messageSubscription = messagingProvider.messageStream.listen((wsMessage) {
       if (wsMessage.type == 'NEW_MESSAGE' && mounted) {
-        _showMessagePopup(wsMessage);
+      _showMessagePopup(wsMessage);
       }
     });
     

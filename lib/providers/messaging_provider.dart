@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/messaging_models.dart';
 import '../services/messaging_service.dart';
 import '../services/websocket_service.dart';
+import '../services/local_notification_service.dart';
 import '../utils/logger.dart';
 
 class MessagingProvider with ChangeNotifier {
@@ -73,6 +74,24 @@ class MessagingProvider with ChangeNotifier {
             final message = MessageResponse.fromJson(wsMessage.data as Map<String, dynamic>);
             Logger.debug('✅ Successfully parsed message: ID=${message.id}, content="${message.content}"');
             _addNewMessage(message);
+            
+            // Show local notification for new message
+            final notificationService = LocalNotificationService();
+            final senderName = message.senderDisplayName.isNotEmpty 
+                ? message.senderDisplayName 
+                : message.senderUsername.isNotEmpty 
+                    ? message.senderUsername 
+                    : 'Người dùng';
+            final messageText = message.content.length > 50 
+                ? '${message.content.substring(0, 50)}...' 
+                : message.content;
+            
+            notificationService.showMessageNotification(
+              id: message.id,
+              senderName: senderName,
+              message: messageText,
+              conversationId: message.conversationId,
+            );
           } catch (e, stackTrace) {
             Logger.error('❌ Error parsing NEW_MESSAGE: $e');
             Logger.error('Stack trace: $stackTrace');

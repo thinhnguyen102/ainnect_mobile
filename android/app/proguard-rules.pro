@@ -175,3 +175,23 @@
     java.lang.Object writeReplace();
     java.lang.Object readResolve();
 }
+
+# Keep HTTP and network related classes
+-keep class java.net.** { *; }
+-keep class javax.net.ssl.** { *; }
+-keep class javax.net.** { *; }
+-dontwarn java.net.**
+-dontwarn javax.net.ssl.**
+-dontwarn javax.net.**
+
+# Keep all classes used by Flutter HTTP plugin
+-keep class io.flutter.plugins.connectivity.** { *; }
+-keep class io.flutter.plugins.networkinfo.** { *; }
+-dontwarn io.flutter.plugins.connectivity.**
+-dontwarn io.flutter.plugins.networkinfo.**
+
+# Keep certificate and SSL classes
+-keep class java.security.cert.** { *; }
+-keep class javax.security.** { *; }
+-dontwarn java.security.cert.**
+-dontwarn javax.security.**
